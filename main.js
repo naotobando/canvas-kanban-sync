@@ -63,12 +63,176 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       }, 1000 * 60 * 60)
     );
 
+    this.setupHoverZoneObserver();
+
     new Notice("Canvas Task Sync loaded");
   }
 
   onunload() {
     if (this.syncTimer) {
       window.clearTimeout(this.syncTimer);
+    }
+    if (this.hoverZoneObservers) {
+      for (const observer of this.hoverZoneObservers.values()) {
+        observer.disconnect();
+      }
+      this.hoverZoneObservers.clear();
+    }
+  }
+
+  // Properties are hidden by default (see styles.css) and only revealed
+  // while hovering a small marker injected into each canvas card's title.
+  // Rather than watching the whole document (expensive — it would fire on
+  // every DOM change anywhere in Obsidian, including unrelated note
+  // editing), this only observes the container of each currently-open
+  // Canvas pane, attaching/detaching observers as panes open and close.
+  setupHoverZoneObserver() {
+    this.hoverZoneObservers = new Map(); // WorkspaceLeaf -> MutationObserver
+
+    const syncObservedLeaves = () => {
+      // Only the configured target Canvas needs the hover-reveal feature —
+      // other open Canvas panes (if any) are left completely untouched.
+      const leaves = this.app.workspace
+        .getLeavesOfType("canvas")
+        .filter((leaf) => leaf.view?.file?.path === this.settings.canvasPath);
+      const stillOpen = new Set(leaves);
+
+      for (const [leaf, observer] of this.hoverZoneObservers) {
+        if (!stillOpen.has(leaf)) {
+          observer.disconnect();
+          this.hoverZoneObservers.delete(leaf);
+        }
+      }
+
+      for (const leaf of leaves) {
+        if (this.hoverZoneObservers.has(leaf)) continue;
+
+        const containerEl = leaf.view?.containerEl;
+        if (!containerEl) continue;
+
+        this.injectHoverZones(containerEl);
+
+        const observer = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            // Also re-scan from mutation.target (the parent whose children
+            // changed), not just mutation.addedNodes. If Obsidian rewrites a
+            // label via `textContent = "..."`, the added node is a plain
+            // Text node (not an HTMLElement) and would be silently skipped
+            // below — the label itself, as the mutation target, is what
+            // needs rescanning in that case.
+            if (mutation.target instanceof HTMLElement) {
+              this.injectHoverZones(mutation.target);
+            }
+            for (const node of mutation.addedNodes) {
+              if (!(node instanceof HTMLElement)) continue;
+              this.injectHoverZones(node);
+            }
+          }
+        });
+
+        observer.observe(containerEl, { childList: true, subtree: true });
+        this.hoverZoneObservers.set(leaf, observer);
+      }
+    };
+
+    syncObservedLeaves();
+    this.registerEvent(this.app.workspace.on("layout-change", syncObservedLeaves));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", syncObservedLeaves));
+  }
+
+  injectHoverZones(root) {
+    // Search for .canvas-node-label directly (rather than .canvas-node and
+    // then looking inside for a label). Entering edit mode on a card causes
+    // Obsidian to recreate just the label element in place, and a mutation
+    // reported for that swap surfaces the new label itself as the added
+    // node — not a whole new .canvas-node — so matching on .canvas-node
+    // alone missed it and the marker never got re-injected.
+    const labels = root.matches?.(".canvas-node-label")
+      ? [root]
+      : Array.from(root.querySelectorAll?.(".canvas-node-label") ?? []);
+
+    for (const label of labels) {
+      // Marker already present on this exact label element (not a stale
+      // one from before a recreation, since a recreated label starts empty).
+      if (label.querySelector(".ctsync-hover-zone")) continue;
+
+      const node = label.closest(".canvas-node");
+      if (!node) continue;
+
+      // Only file-nodes with an actual properties block get the marker —
+      // group nodes (Todo/Doing/Done) also have a .canvas-node-label but no
+      // .metadata-container.
+      const hasProperties = node.querySelector(".metadata-container");
+      if (!hasProperties) continue;
+
+      // A small circled-i character placed right after the title, rather
+      // than a separate dot floated in the corner — bigger/easier hover
+      // target (padding in CSS) and self-explanatory as an "info" affordance.
+      const zone = document.createElement("span");
+      zone.className = "ctsync-hover-zone";
+      zone.textContent = "ⓘ";
+      zone.setAttribute("aria-label", "プロパティを表示（クリックで固定表示）");
+
+      // The properties block is a real, editable widget (not a read-only
+      // rendering) — a hover-only reveal would close the moment the cursor
+      // moves toward it to actually click into a field. Click pins it open
+      // so it can be used; clicking again un-pins and hides it.
+      let pinned = false;
+
+      // Obsidian renders the properties block in a collapsed state inside
+      // canvas cards: .metadata-container has class "is-collapsed", and
+      // the actual property rows live in a nested .metadata-content
+      // element with an inline style="display: none" of its own. Both
+      // .metadata-container and .metadata-content need to be forced open
+      // (or restored to collapsed) together.
+      const showProperties = () => {
+        node.querySelectorAll(".metadata-container").forEach((el) => {
+          el.style.setProperty("display", "block", "important");
+          el.classList.remove("is-collapsed");
+          el.querySelectorAll(".metadata-content").forEach((content) => {
+            content.style.setProperty("display", "block", "important");
+            content.classList.remove("is-collapsed");
+          });
+        });
+      };
+
+      const hideProperties = () => {
+        node.querySelectorAll(".metadata-container").forEach((el) => {
+          el.style.setProperty("display", "none", "important");
+          el.classList.add("is-collapsed");
+          el.querySelectorAll(".metadata-content").forEach((content) => {
+            content.style.setProperty("display", "none", "important");
+            content.classList.add("is-collapsed");
+          });
+        });
+      };
+
+      zone.addEventListener("mouseenter", () => {
+        showProperties();
+      });
+      zone.addEventListener("mouseleave", () => {
+        if (!pinned) hideProperties();
+      });
+      zone.addEventListener("click", (event) => {
+        // Prevent the click from also selecting/focusing the underlying
+        // canvas card.
+        event.preventDefault();
+        event.stopPropagation();
+
+        pinned = !pinned;
+        zone.classList.toggle("ctsync-pinned", pinned);
+
+        if (pinned) {
+          showProperties();
+        } else {
+          hideProperties();
+        }
+      });
+
+      // Prepend rather than append: the label truncates long titles, so a
+      // marker placed after the text can get clipped away. At the front it
+      // stays at a fixed, always-visible position regardless of title length.
+      label.prepend(zone);
     }
   }
 
@@ -261,11 +425,12 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       return;
     }
 
+    // Group size is 2.5x the original (400x600 -> 1000x1500), gap scaled to match.
     const template = {
       nodes: [
-        { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 400, height: 600 },
-        { id: "group-doing", type: "group", label: "Doing", x: 450, y: 0, width: 400, height: 600 },
-        { id: "group-done", type: "group", label: "Done", x: 900, y: 0, width: 400, height: 600 },
+        { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
+        { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
+        { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
       ],
       edges: [],
       metadata: { version: "1.0-1.0", frontmatter: {} },

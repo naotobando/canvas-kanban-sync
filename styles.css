@@ -1,0 +1,48 @@
+/* Canvas Task Sync
+   Properties (Status/CreatedAt/etc.) are hidden on canvas cards by default,
+   and only revealed while hovering a small marker dot injected by the
+   plugin (see main.js: setupHoverZoneObserver/injectHoverZones).
+   The reveal-on-hover behavior itself is applied via inline styles set
+   directly on .metadata-container by JS (not by a CSS rule here) — a
+   plain class-toggle CSS rule was overridden by Obsidian's own styles
+   in testing.
+
+   NOTE: `.metadata-container` / `.canvas-node` are Obsidian's internal
+   class names and are not officially documented/stable across versions.
+   If this stops working after an Obsidian update, inspect a card's
+   rendered HTML in DevTools (Cmd+Opt+I) and adjust the selectors below. */
+
+.canvas-node .metadata-container {
+  display: none;
+}
+
+.canvas-node .metadata-properties-heading {
+  display: none;
+}
+
+.canvas-node .metadata-property {
+  font-size: 0.8em;
+  padding: 1px 4px;
+}
+
+.ctsync-hover-zone {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 6px 8px; /* enlarges the hoverable/clickable hit area beyond the glyph itself */
+  font-size: 0.85em;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ctsync-hover-zone:hover {
+  color: var(--interactive-accent);
+}
+
+/* Pinned (clicked open) state — solid accent color so it's visually
+   distinct from a plain hover. */
+.ctsync-hover-zone.ctsync-pinned {
+  color: var(--interactive-accent);
+  font-weight: bold;
+}
