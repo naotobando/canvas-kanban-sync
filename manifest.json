@@ -1,0 +1,9 @@
+{
+  "id": "canvas-modify-test",
+  "name": "Canvas Modify Test",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Canvas group name = task Status (Approach A). Syncs a task Canvas with note frontmatter.",
+  "author": "you",
+  "isDesktopOnly": false
+}
