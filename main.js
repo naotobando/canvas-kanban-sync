@@ -4,6 +4,9 @@ const DEFAULT_SETTINGS = {
   canvasPath: "TODO.canvas",
   archiveWeekday: 6, // 0=Sun ... 6=Sat
   lastArchivedAt: 0,
+  statusField: "Status",
+  modifiedAtField: "ModifiedAt",
+  completedAtField: "CompletedAt",
 };
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -299,15 +302,16 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         await this.app.fileManager.processFrontMatter(noteFile, (fm) => {
           if (!this.hasTaskTag(fm.tags)) return;
 
-          const prevStatus = fm.Status;
+          const { statusField, modifiedAtField, completedAtField } = this.settings;
+          const prevStatus = fm[statusField];
           const now = this.now();
 
           if (prevStatus !== nextStatus) {
-            fm.Status = nextStatus;
-            fm.ModifiedAt = now;
+            fm[statusField] = nextStatus;
+            fm[modifiedAtField] = now;
 
             if (nextStatus === "Done") {
-              fm.CompletedAt = now;
+              fm[completedAtField] = now;
             }
 
             updated++;
@@ -340,20 +344,22 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       return fm && this.hasTaskTag(fm.tags);
     });
 
+    const { statusField, modifiedAtField } = this.settings;
+
     for (const file of taskFiles) {
       if (placedPaths.has(file.path)) continue;
 
       const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      const status = fm?.Status;
+      const status = fm?.[statusField];
 
       if (!status || status === "Backlog" || status === "Done") continue;
 
       await this.app.fileManager.processFrontMatter(file, (fm2) => {
         if (!this.hasTaskTag(fm2.tags)) return;
-        if (!fm2.Status || fm2.Status === "Backlog" || fm2.Status === "Done") return;
+        if (!fm2[statusField] || fm2[statusField] === "Backlog" || fm2[statusField] === "Done") return;
 
-        fm2.Status = "Backlog";
-        fm2.ModifiedAt = this.now();
+        fm2[statusField] = "Backlog";
+        fm2[modifiedAtField] = this.now();
       });
 
       reverted++;
@@ -538,5 +544,52 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    containerEl.createEl("h3", { text: "フロントマターのフィールド名" });
+    containerEl.createEl("p", {
+      text:
+        "変更は今後の同期から適用されます。既存ノートのフィールド名は自動では移行されません。" +
+        "運用中に変更する場合は、VSCode等の外部エディタで一括置換してください。",
+      cls: "setting-item-description",
+    });
+
+    new Setting(containerEl)
+      .setName("Statusフィールド名")
+      .setDesc("Canvas上のグループ名を書き込むフィールド名")
+      .addText((text) =>
+        text
+          .setPlaceholder("Status")
+          .setValue(this.plugin.settings.statusField)
+          .onChange(async (value) => {
+            this.plugin.settings.statusField = value.trim() || DEFAULT_SETTINGS.statusField;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("ModifiedAtフィールド名")
+      .setDesc("Status更新時に現在時刻を書き込むフィールド名")
+      .addText((text) =>
+        text
+          .setPlaceholder("ModifiedAt")
+          .setValue(this.plugin.settings.modifiedAtField)
+          .onChange(async (value) => {
+            this.plugin.settings.modifiedAtField = value.trim() || DEFAULT_SETTINGS.modifiedAtField;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("CompletedAtフィールド名")
+      .setDesc("Doneグループに入った時刻を書き込むフィールド名")
+      .addText((text) =>
+        text
+          .setPlaceholder("CompletedAt")
+          .setValue(this.plugin.settings.completedAtField)
+          .onChange(async (value) => {
+            this.plugin.settings.completedAtField = value.trim() || DEFAULT_SETTINGS.completedAtField;
+            await this.plugin.saveSettings();
+          })
+      );
   }
 }
