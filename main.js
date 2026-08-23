@@ -240,6 +240,18 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         });
       };
 
+      // Run once immediately, rather than waiting for the user to touch the
+      // marker. Without this, a freshly-detected card is only hidden by the
+      // plain CSS rule (styles.css) — and Obsidian's own body-focus handler
+      // (entering edit mode on the note body) force-opens the properties
+      // block with its own inline style, which that plain CSS can't block.
+      // Actually calling hideProperties() here writes the same is-collapsed
+      // class + !important inline style onto this specific card that
+      // Obsidian's focus handler itself checks/writes, so it no longer sees
+      // a reason to force it open. (Confirmed: manually toggling the marker
+      // once had the same effect — this just does it automatically.)
+      hideProperties();
+
       zone.addEventListener("mouseenter", () => {
         showProperties();
       });
