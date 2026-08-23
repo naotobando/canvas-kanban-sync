@@ -13,7 +13,13 @@
    rendered HTML in DevTools (Cmd+Opt+I) and adjust the selectors below. */
 
 .canvas-node .metadata-container {
-  display: none;
+  /* !important: without it, Obsidian's own inline style set on a freshly
+     rendered card (e.g. right after reopening the canvas, or right after a
+     Bases-created task appears as a card) can win over this plain rule and
+     leave the properties visibly expanded. The JS hover/pin toggle also
+     writes its inline style with "important" priority, so it still takes
+     precedence over this rule when the user actually hovers/clicks. */
+  display: none !important;
 }
 
 .canvas-node .metadata-properties-heading {
