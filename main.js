@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   statusField: "Status",
   modifiedAtField: "ModifiedAt",
   completedAtField: "CompletedAt",
+  startedAtField: "StartedAt",
 };
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -302,13 +303,27 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         await this.app.fileManager.processFrontMatter(noteFile, (fm) => {
           if (!this.hasTaskTag(fm.tags)) return;
 
-          const { statusField, modifiedAtField, completedAtField } = this.settings;
+          const { statusField, modifiedAtField, completedAtField, startedAtField } = this.settings;
           const prevStatus = fm[statusField];
           const now = this.now();
 
           if (prevStatus !== nextStatus) {
+            // StartedAt marks "left Backlog", not "created" or "added to
+            // Backlog" — a task can sit in Backlog indefinitely without
+            // inflating its elapsed-days count. It's set once on the first
+            // move away from Backlog, left untouched while cycling between
+            // other groups (e.g. Todo -> Doing -> Done), and cleared if the
+            // task ever goes back to Backlog (see also revertOrphanedStatuses).
+            const wasBacklog = !prevStatus || prevStatus === "Backlog";
+
             fm[statusField] = nextStatus;
             fm[modifiedAtField] = now;
+
+            if (nextStatus === "Backlog") {
+              delete fm[startedAtField];
+            } else if (wasBacklog) {
+              fm[startedAtField] = now;
+            }
 
             if (nextStatus === "Done") {
               fm[completedAtField] = now;
@@ -344,7 +359,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       return fm && this.hasTaskTag(fm.tags);
     });
 
-    const { statusField, modifiedAtField } = this.settings;
+    const { statusField, modifiedAtField, startedAtField } = this.settings;
 
     for (const file of taskFiles) {
       if (placedPaths.has(file.path)) continue;
@@ -360,6 +375,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
 
         fm2[statusField] = "Backlog";
         fm2[modifiedAtField] = this.now();
+        delete fm2[startedAtField];
       });
 
       reverted++;
@@ -588,6 +604,19 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.completedAtField)
           .onChange(async (value) => {
             this.plugin.settings.completedAtField = value.trim() || DEFAULT_SETTINGS.completedAtField;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("StartedAtフィールド名")
+      .setDesc("Backlogから最初に抜けた時刻を書き込むフィールド名（経過日数の起点。Backlogに戻るとクリアされます）")
+      .addText((text) =>
+        text
+          .setPlaceholder("StartedAt")
+          .setValue(this.plugin.settings.startedAtField)
+          .onChange(async (value) => {
+            this.plugin.settings.startedAtField = value.trim() || DEFAULT_SETTINGS.startedAtField;
             await this.plugin.saveSettings();
           })
       );
