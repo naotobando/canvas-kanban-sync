@@ -52,3 +52,17 @@
   color: var(--interactive-accent);
   font-weight: bold;
 }
+
+/* Elapsed-days badge — always visible (unlike the hover-only properties
+   reveal above), so at-a-glance triage doesn't require hovering each card. */
+.ctsync-elapsed-badge {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 5px;
+  font-size: 0.75em;
+  line-height: 1.4;
+  border-radius: 3px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  vertical-align: middle;
+}

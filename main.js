@@ -31,6 +31,24 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       })
     );
 
+    // A task's StartedAt/Status changes on the note itself, not on the
+    // canvas file, so the "modify" listener above (which only watches the
+    // canvas) never fires for it. Refresh badges on the affected open
+    // canvas leaves directly off the frontmatter-change event instead.
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (file) => {
+        if (!(file instanceof TFile)) return;
+        if (!this.hoverZoneObservers?.size) return;
+
+        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        if (!this.hasTaskTag(fm?.tags)) return;
+
+        for (const leaf of this.hoverZoneObservers.keys()) {
+          this.injectElapsedDaysBadges(leaf);
+        }
+      })
+    );
+
     this.addCommand({
       id: "sync-task-canvas-now",
       name: "Sync task canvas now",
@@ -115,6 +133,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         if (!containerEl) continue;
 
         this.injectHoverZones(containerEl);
+        this.injectElapsedDaysBadges(leaf);
 
         const observer = new MutationObserver((mutations) => {
           for (const mutation of mutations) {
@@ -132,6 +151,16 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
               this.injectHoverZones(node);
             }
           }
+
+          // Cards re-render as they're added/moved, which would wipe out a
+          // badge injected earlier — re-apply once per batch rather than
+          // per-mutation (cheap: it only walks this canvas's own node list).
+          // injectElapsedDaysBadges only touches textContent when the value
+          // actually changes, so this does NOT retrigger the observer on
+          // every pass — an earlier version wrote textContent unconditionally
+          // here, which self-triggered the very same observer indefinitely
+          // and froze the app. Keep that guard intact if this is ever touched.
+          this.injectElapsedDaysBadges(leaf);
         });
 
         observer.observe(containerEl, { childList: true, subtree: true });
@@ -238,6 +267,71 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       // stays at a fixed, always-visible position regardless of title length.
       label.prepend(zone);
     }
+  }
+
+  // Unlike the ⓘ marker (hover-only), the elapsed-days badge is always
+  // visible — the whole point is spotting stale tasks at a glance without
+  // having to hover every card.
+  //
+  // This walks the live Canvas view model (leaf.view.canvas.nodes) rather
+  // than the DOM, since that's the only reliable way to map a rendered card
+  // back to the vault file it represents. Like `.metadata-container` above,
+  // `canvas.nodes`/`.nodeEl`/`.file` are undocumented Obsidian internals —
+  // if this stops working after an update, re-inspect via DevTools.
+  //
+  // IMPORTANT: this is called from the same MutationObserver that watches
+  // this DOM subtree (see setupHoverZoneObserver). Writing to `textContent`
+  // unconditionally here previously caused an infinite loop — the write is
+  // itself a childList mutation, even when the string value is unchanged,
+  // so the observer kept re-firing and froze the app. The `badge.textContent
+  // !== text` guard below is load-bearing; do not remove it.
+  injectElapsedDaysBadges(leaf) {
+    const canvas = leaf.view?.canvas;
+    if (!canvas?.nodes) return;
+
+    const { startedAtField } = this.settings;
+
+    for (const node of canvas.nodes.values()) {
+      if (!node.file || !node.nodeEl) continue;
+
+      const label = node.nodeEl.querySelector(".canvas-node-label");
+      if (!label) continue;
+
+      const existing = label.querySelector(".ctsync-elapsed-badge");
+      const fm = this.app.metadataCache.getFileCache(node.file)?.frontmatter;
+      const days = this.elapsedDays(fm?.[startedAtField]);
+
+      if (days === null) {
+        existing?.remove();
+        continue;
+      }
+
+      const text = `${days}d`;
+
+      if (existing) {
+        if (existing.textContent !== text) {
+          existing.textContent = text;
+        }
+        continue;
+      }
+
+      const badge = document.createElement("span");
+      badge.className = "ctsync-elapsed-badge";
+      badge.textContent = text;
+      label.prepend(badge);
+    }
+  }
+
+  // Returns null (rather than 0) when there's no valid StartedAt, so callers
+  // can distinguish "not started" from "started today" without a second check.
+  elapsedDays(startedAt) {
+    if (!startedAt) return null;
+
+    const started = new Date(String(startedAt).replace(" ", "T"));
+    if (Number.isNaN(started.getTime())) return null;
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.max(0, Math.floor((Date.now() - started.getTime()) / msPerDay));
   }
 
   async saveSettings() {
