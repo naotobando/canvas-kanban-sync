@@ -1,7 +1,7 @@
 const { Plugin, Notice, TFile, PluginSettingTab, Setting } = require("obsidian");
 
 const DEFAULT_SETTINGS = {
-  canvasPath: "TODO.canvas",
+  canvasPath: "Canvas Task Sync.canvas",
   archiveWeekday: 6, // 0=Sun ... 6=Sat
   lastArchivedAt: 0,
   statusField: "Status",
@@ -560,19 +560,64 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       return;
     }
 
+    // A blank set of groups doesn't show what to actually do with them, and
+    // this is exactly the kind of thing a first-time user (or a fresh test
+    // Vault) gets wrong silently — see the #task-tag mixup this session.
+    // Seeding one real, already-placed task note demonstrates the whole
+    // loop (tag -> group placement -> Status/StartedAt sync) with nothing
+    // left to guess. The note's path is collision-checked (see
+    // getUniqueFilePath); the canvas itself is not — same as before, a
+    // colliding canvas path aborts the whole command rather than being
+    // silently disambiguated, since silently creating a second, differently
+    // named board would be more confusing than just telling the user why.
+    const notePath = await this.getUniqueFilePath("Canvas Task Sync - サンプルタスク.md");
+    const noteContent = `---\ntags:\n  - ${this.settings.taskTag}\n---\n\nCanvas Task Syncが自動生成したサンプルタスクです。このカードを別のグループへドラッグすると、Statusが自動的に更新されます。削除してもプラグインの動作には影響しません。\n`;
+    await this.app.vault.create(notePath, noteContent);
+
     // Group size is 2.5x the original (400x600 -> 1000x1500), gap scaled to match.
     const template = {
       nodes: [
         { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
         { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
         { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
+        // Centered inside the Todo group (1000 wide) with the usual 400-wide
+        // card size, and offset down from the top edge to clear the group's
+        // label overlay.
+        { id: "sample-task", type: "file", file: notePath, x: 300, y: 150, width: 400, height: 300 },
       ],
       edges: [],
       metadata: { version: "1.0-1.0", frontmatter: {} },
     };
 
     await this.app.vault.create(path, JSON.stringify(template, null, "\t"));
-    new Notice(`Created task canvas: ${path}`);
+    new Notice(`Created task canvas: ${path} (with a sample task in Todo)`);
+
+    // Populate Status/StartedAt for the sample task immediately, so opening
+    // the new canvas already shows the sync working rather than an inert
+    // card waiting for the user's first drag.
+    await this.syncTaskCanvas();
+  }
+
+  // Obsidian's vault.create() throws on an existing path rather than
+  // disambiguating for you (unlike the in-app "new note" UI, which appends
+  // "1", "2", ...). Needed here because, unlike the canvas path itself
+  // (checked further up, and left to abort the whole command on collision),
+  // silently failing to create the sample task would leave a canvas
+  // pointing at a file that was never written.
+  async getUniqueFilePath(basePath) {
+    if (!this.app.vault.getAbstractFileByPath(basePath)) return basePath;
+
+    const dotIndex = basePath.lastIndexOf(".");
+    const stem = dotIndex === -1 ? basePath : basePath.slice(0, dotIndex);
+    const ext = dotIndex === -1 ? "" : basePath.slice(dotIndex);
+
+    let n = 1;
+    let candidate = `${stem} ${n}${ext}`;
+    while (this.app.vault.getAbstractFileByPath(candidate)) {
+      n++;
+      candidate = `${stem} ${n}${ext}`;
+    }
+    return candidate;
   }
 
   // The resting state ("not on the board") is represented by an empty/absent
@@ -665,7 +710,7 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
       .setDesc("グループ名がそのままStatusになる、同期対象のCanvasファイルへのパス（Vaultルートからの相対パス）")
       .addText((text) =>
         text
-          .setPlaceholder("TODO.canvas")
+          .setPlaceholder("Canvas Task Sync.canvas")
           .setValue(this.plugin.settings.canvasPath)
           .onChange(async (value) => {
             this.plugin.settings.canvasPath = value.trim() || DEFAULT_SETTINGS.canvasPath;
