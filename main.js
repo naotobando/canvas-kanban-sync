@@ -8,6 +8,8 @@ const DEFAULT_SETTINGS = {
   modifiedAtField: "ModifiedAt",
   completedAtField: "CompletedAt",
   startedAtField: "StartedAt",
+  taskTag: "task",
+  doneStatus: "Done",
 };
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -409,18 +411,18 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         await this.app.fileManager.processFrontMatter(noteFile, (fm) => {
           if (!this.hasTaskTag(fm.tags)) return;
 
-          const { statusField, modifiedAtField, completedAtField, startedAtField } = this.settings;
+          const { statusField, modifiedAtField, completedAtField, startedAtField, doneStatus } = this.settings;
           const prevStatus = fm[statusField];
           const now = this.now();
 
           if (prevStatus !== nextStatus) {
-            // StartedAt marks "left Backlog", not "created" or "added to
-            // Backlog" — a task can sit in Backlog indefinitely without
-            // inflating its elapsed-days count. It's set once on the first
-            // move away from Backlog, left untouched while cycling between
-            // other groups (e.g. Todo -> Doing -> Done), and cleared if the
-            // task ever goes back to Backlog (see also revertOrphanedStatuses).
-            const wasBacklog = !prevStatus || prevStatus === "Backlog";
+            // StartedAt marks "left the resting state", not "created" —
+            // a task can sit untouched indefinitely without inflating its
+            // elapsed-days count. It's set once on the first move out of
+            // resting, left untouched while cycling between other groups
+            // (e.g. Todo -> Doing -> Done), and cleared if the task ever
+            // goes back to resting (see also revertOrphanedStatuses).
+            const wasBacklog = this.isBacklog(prevStatus);
 
             fm[statusField] = nextStatus;
             fm[modifiedAtField] = now;
@@ -431,7 +433,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
               fm[startedAtField] = now;
             }
 
-            if (nextStatus === "Done") {
+            if (nextStatus === doneStatus) {
               fm[completedAtField] = now;
             }
 
@@ -440,14 +442,14 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         });
       }
 
-      // Notes that claim an active (non-Backlog, non-Done) Status but are no
-      // longer placed in any group on the canvas: revert to Backlog.
-      // Removal from the Done group is handled separately by Archive and is
-      // intentionally NOT reverted here.
+      // Notes that claim an active (non-resting, non-Done) Status but are no
+      // longer placed in any group on the canvas: revert to the resting
+      // state (empty Status). Removal from the Done group is handled
+      // separately by Archive and is intentionally NOT reverted here.
       const reverted = await this.revertOrphanedStatuses(placedPaths);
 
       if (updated > 0 || reverted > 0) {
-        new Notice(`Task Canvas synced: ${updated} updated, ${reverted} reverted to Backlog`);
+        new Notice(`Task Canvas synced: ${updated} updated, ${reverted} reverted to resting`);
       }
     } catch (error) {
       console.error("Task Canvas sync failed:", error);
@@ -465,7 +467,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       return fm && this.hasTaskTag(fm.tags);
     });
 
-    const { statusField, modifiedAtField, startedAtField } = this.settings;
+    const { statusField, modifiedAtField, startedAtField, doneStatus } = this.settings;
 
     for (const file of taskFiles) {
       if (placedPaths.has(file.path)) continue;
@@ -473,13 +475,18 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
       const status = fm?.[statusField];
 
-      if (!status || status === "Backlog" || status === "Done") continue;
+      if (this.isBacklog(status) || status === doneStatus) continue;
 
       await this.app.fileManager.processFrontMatter(file, (fm2) => {
         if (!this.hasTaskTag(fm2.tags)) return;
-        if (!fm2[statusField] || fm2[statusField] === "Backlog" || fm2[statusField] === "Done") return;
+        if (this.isBacklog(fm2[statusField]) || fm2[statusField] === doneStatus) return;
 
-        fm2[statusField] = "Backlog";
+        // Resting state is "no Status" now, not the literal string
+        // "Backlog" — see isBacklog(). Existing notes that still carry the
+        // old literal value are left untouched here (isBacklog() already
+        // treats them as resting, so they never reach this branch); they
+        // only normalize to empty once something moves them again.
+        delete fm2[statusField];
         fm2[modifiedAtField] = this.now();
         delete fm2[startedAtField];
       });
@@ -508,7 +515,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       const nodes = canvas.nodes ?? [];
 
       const doneGroups = nodes.filter(
-        (node) => node.type === "group" && node.label === "Done"
+        (node) => node.type === "group" && node.label === this.settings.doneStatus
       );
 
       const fileNodes = nodes.filter(
@@ -568,15 +575,28 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
     new Notice(`Created task canvas: ${path}`);
   }
 
+  // The resting state ("not on the board") is represented by an empty/absent
+  // Status, not a literal string — see the 2026-09-03 decision to stop
+  // writing "Backlog" (kept configurable-string treatment for Done, since
+  // that mirrors an actual user-named Canvas group; the resting state isn't
+  // tied to any group at all). "Backlog" is still recognized here so notes
+  // written before this change keep working — revertOrphanedStatuses only
+  // ever WRITES empty now, this is read-side backward compatibility only.
+  isBacklog(status) {
+    return !status || status === "Backlog";
+  }
+
   hasTaskTag(tags) {
     if (!tags) return false;
 
+    const taskTag = this.settings.taskTag;
+
     if (Array.isArray(tags)) {
-      return tags.includes("task") || tags.includes("#task");
+      return tags.includes(taskTag) || tags.includes(`#${taskTag}`);
     }
 
     if (typeof tags === "string") {
-      return tags === "task" || tags === "#task";
+      return tags === taskTag || tags === `#${taskTag}`;
     }
 
     return false;
@@ -654,6 +674,35 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("タスク判定タグ")
+      .setDesc("frontmatterのtagsにこのタグが含まれるノートだけを同期対象にする（#は付けずに入力）")
+      .addText((text) =>
+        text
+          .setPlaceholder("task")
+          .setValue(this.plugin.settings.taskTag)
+          .onChange(async (value) => {
+            this.plugin.settings.taskTag = value.trim() || DEFAULT_SETTINGS.taskTag;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Done扱いのグループ名")
+      .setDesc(
+        "このCanvasグループ名（＝Status値）を「完了」として扱う。Archiveコマンドの対象・CompletedAt記録・" +
+          "休止状態への自動復帰の除外判定すべてに使われる（グループ名は他と同様ユーザー任意でリネーム可能）"
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("Done")
+          .setValue(this.plugin.settings.doneStatus)
+          .onChange(async (value) => {
+            this.plugin.settings.doneStatus = value.trim() || DEFAULT_SETTINGS.doneStatus;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName("Archive実行曜日")
       .setDesc("Doneグループのノードを週一で自動的にCanvasから取り除く曜日（ノートとStatusは維持されます）")
       .addDropdown((dropdown) => {
@@ -716,7 +765,7 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("StartedAtフィールド名")
-      .setDesc("Backlogから最初に抜けた時刻を書き込むフィールド名（経過日数の起点。Backlogに戻るとクリアされます）")
+      .setDesc("休止状態（Statusが未設定）から最初に抜けた時刻を書き込むフィールド名（経過日数の起点。休止状態に戻るとクリアされます）")
       .addText((text) =>
         text
           .setPlaceholder("StartedAt")
