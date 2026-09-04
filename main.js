@@ -15,6 +15,61 @@ const DEFAULT_SETTINGS = {
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
+// Per-language content for createTutorialCanvas(). Layout/geometry/edges are
+// shared (built once in createTutorialCanvas itself) — only strings live
+// here, so adding a language later (e.g. "ja") means adding one entry to
+// this object, not duplicating the layout code. Settings-tab labels are
+// referenced generically ("this plugin's settings tab") rather than quoted,
+// since the settings tab itself is still Japanese-only as of this command's
+// English tutorial — quoting an English label that doesn't exist yet would
+// be actively misleading. Revisit once the settings tab is translated.
+const TUTORIAL_STRINGS = {
+  en: {
+    folderName: "Canvas Task Sync Tutorial",
+    canvasFileName: "Tutorial.canvas",
+    task1Title: "① Try moving this",
+    task2Title: "② Drag this in yourself",
+    task3Title: "③ Place in Done, try Archive",
+    task4Title: "④ Not synced (no tag)",
+    task1Body: "This is a Canvas Task Sync tutorial note. It's used as card ①. Feel free to edit or delete it.",
+    task2Body: "This is a Canvas Task Sync tutorial note. It's card ②, and hasn't been placed on the Canvas yet.",
+    task3Body: "This is a Canvas Task Sync tutorial note. It's used as card ③.",
+    task4Body: "This is a Canvas Task Sync tutorial note. It's used as card ④. It deliberately has no task tag.",
+    welcome:
+      "# 🗂️ Welcome to Canvas Task Sync\n\n" +
+      "The group a card sits in (Todo / Doing / Done) becomes that task note's `Status`. Drag a card into " +
+      "another group and its frontmatter is synced automatically.\n\n" +
+      "Four sample tasks are set up below — try them in order, ① through ④.",
+    caption1:
+      "① Try dragging this card into Doing or Done. On drop, the note's `Status` is automatically rewritten " +
+      "to match the group name (e.g. Doing).",
+    task2Hint: (task2Path) =>
+      `② Open the file explorer and find "${task2Path}". It hasn't been placed on this Canvas yet — drag & ` +
+      "drop it in around here, and its `Status` will be synced automatically, just like ①.",
+    caption4: (taskTag) =>
+      `④ This card never actually syncs — its note is missing \`tags: ${taskTag}\` in its frontmatter (this ` +
+      "is deliberate, for comparison with ①). Which tag counts as a task is configurable in this plugin's " +
+      "settings tab.",
+    caption3: (doneStatus) =>
+      `③ This card already has \`Status: ${doneStatus}\`. The "Archive done tasks" command removes cards ` +
+      "like this from the Canvas.\n\n" +
+      "• Only the card's placement on the Canvas is removed — the note itself and its Status field are left untouched\n" +
+      "• Which group counts as \"done\" for Archive is configurable in this plugin's settings tab\n" +
+      "• Archive can also run automatically on a chosen weekday (also in the settings tab) — this is OFF by " +
+      "default, so only the manual command runs unless you turn it on\n\n" +
+      "Want to try it for real? The command always acts on your configured \"Target Canvas path\" — point that " +
+      "setting at this tutorial's canvas file first, run the command, then switch it back.",
+    settingsOverview:
+      "## ⚙️ What you can customize in the settings tab\n\n" +
+      "- **Target Canvas path**: point the sync at a different Canvas file\n" +
+      "- **Status / ModifiedAt / CompletedAt / StartedAt field names**: the frontmatter keys the plugin " +
+      "writes. All except Status can be left blank to turn that field off entirely\n" +
+      "- Turning off **StartedAt** also turns off the elapsed-days badge on Canvas cards",
+    noticeCreated: (path) => `Created tutorial canvas: ${path}`,
+    noticeExists: (path) => `Tutorial canvas already exists: ${path}. Not overwriting.`,
+  },
+};
+
 module.exports = class CanvasTaskSyncPlugin extends Plugin {
   async onload() {
     this.syncTimer = null;
@@ -73,6 +128,14 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       name: "Create task canvas (Todo / Doing / Done template)",
       callback: async () => {
         await this.createTaskCanvas();
+      },
+    });
+
+    this.addCommand({
+      id: "create-tutorial-canvas-en",
+      name: "Create tutorial canvas (English)",
+      callback: async () => {
+        await this.createTutorialCanvas("en");
       },
     });
 
@@ -373,16 +436,21 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
 
   // Approach A: a group's label IS the Status value, verbatim.
   // Any group on the configured canvas counts — no fixed vocabulary/whitelist.
-  async syncTaskCanvas() {
+  // canvasPathOverride lets createTutorialCanvas() sync its own canvas
+  // (which is intentionally NOT this.settings.canvasPath — see there) right
+  // after creating it. Every other call site omits it and gets the normal,
+  // user-configured target.
+  async syncTaskCanvas(canvasPathOverride) {
     if (this.isSyncing) return;
 
     this.isSyncing = true;
 
     try {
-      const canvasFile = this.app.vault.getAbstractFileByPath(this.settings.canvasPath);
+      const targetPath = canvasPathOverride ?? this.settings.canvasPath;
+      const canvasFile = this.app.vault.getAbstractFileByPath(targetPath);
 
       if (!(canvasFile instanceof TFile)) {
-        new Notice(`Canvas not found: ${this.settings.canvasPath}`);
+        new Notice(`Canvas not found: ${targetPath}`);
         return;
       }
 
@@ -575,42 +643,129 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       return;
     }
 
-    // A blank set of groups doesn't show what to actually do with them, and
-    // this is exactly the kind of thing a first-time user (or a fresh test
-    // Vault) gets wrong silently — see the #task-tag mixup this session.
-    // Seeding one real, already-placed task note demonstrates the whole
-    // loop (tag -> group placement -> Status/StartedAt sync) with nothing
-    // left to guess. The note's path is collision-checked (see
-    // getUniqueFilePath); the canvas itself is not — same as before, a
-    // colliding canvas path aborts the whole command rather than being
-    // silently disambiguated, since silently creating a second, differently
-    // named board would be more confusing than just telling the user why.
-    const notePath = await this.getUniqueFilePath("Canvas Task Sync - サンプルタスク.md");
-    const noteContent = `---\ntags:\n  - ${this.settings.taskTag}\n---\n\nCanvas Task Syncが自動生成したサンプルタスクです。このカードを別のグループへドラッグすると、Statusが自動的に更新されます。削除してもプラグインの動作には影響しません。\n`;
-    await this.app.vault.create(notePath, noteContent);
-
     // Group size is 2.5x the original (400x600 -> 1000x1500), gap scaled to match.
     const template = {
       nodes: [
         { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
         { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
         { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
-        // Centered inside the Todo group (1000 wide) with the usual 400-wide
-        // card size, and offset down from the top edge to clear the group's
-        // label overlay.
-        { id: "sample-task", type: "file", file: notePath, x: 300, y: 150, width: 400, height: 300 },
       ],
       edges: [],
       metadata: { version: "1.0-1.0", frontmatter: {} },
     };
 
     await this.app.vault.create(path, JSON.stringify(template, null, "\t"));
-    new Notice(`Created task canvas: ${path} (with a sample task in Todo)`);
+    new Notice(`Created task canvas: ${path}`);
+  }
 
-    // Populate Status/StartedAt for the sample task immediately, so opening
-    // the new canvas already shows the sync working rather than an inert
-    // card waiting for the user's first drag.
-    await this.syncTaskCanvas();
+  // Self-contained walkthrough in its own folder — deliberately NOT built
+  // on this.settings.canvasPath, so it never touches (or requires) the
+  // user's real board, and deleting the folder removes every trace of it.
+  // Four seeded tasks + on-canvas text notes walk through the main
+  // behaviors hands-on instead of requiring a README no one reads yet:
+  //   ① already placed in Todo — drag it to see Status sync happen
+  //   ② deliberately NOT placed — the user drags it in themselves
+  //   ③ already placed in Done, already synced — ready to test Archive
+  //   ④ deliberately untagged — placed but never syncs, a live counterexample
+  //
+  // Layout/geometry/edges are language-agnostic and built once here; only
+  // the strings come from TUTORIAL_STRINGS[lang] — adding a language later
+  // means adding an entry there, not duplicating this method.
+  async createTutorialCanvas(lang) {
+    const s = TUTORIAL_STRINGS[lang];
+    const { taskTag, doneStatus } = this.settings;
+
+    const folderPath = s.folderName;
+    const canvasPath = `${folderPath}/${s.canvasFileName}`;
+
+    if (this.app.vault.getAbstractFileByPath(canvasPath)) {
+      new Notice(s.noticeExists(canvasPath));
+      return;
+    }
+
+    if (!this.app.vault.getAbstractFileByPath(folderPath)) {
+      await this.app.vault.createFolder(folderPath);
+    }
+
+    // Create every auxiliary note BEFORE writing the canvas itself, so a
+    // failure partway through never leaves a canvas pointing at notes that
+    // don't exist. The canvas path collision check above already covers the
+    // canvas side; getUniqueFilePath covers each note (relevant if a
+    // previous attempt left notes behind but not the canvas).
+    const task1Path = await this.getUniqueFilePath(`${folderPath}/${s.task1Title}.md`);
+    await this.app.vault.create(task1Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task1Body}\n`);
+
+    const task2Path = await this.getUniqueFilePath(`${folderPath}/${s.task2Title}.md`);
+    await this.app.vault.create(task2Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task2Body}\n`);
+
+    const task3Path = await this.getUniqueFilePath(`${folderPath}/${s.task3Title}.md`);
+    await this.app.vault.create(task3Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task3Body}\n`);
+
+    // No tags field at all — deliberately not recognized as a task note,
+    // even though it's about to be placed in a group like ① and ③ are.
+    const task4Path = await this.getUniqueFilePath(`${folderPath}/${s.task4Title}.md`);
+    await this.app.vault.create(task4Path, `${s.task4Body}\n`);
+
+    const groups = [
+      { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
+      { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
+      { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
+    ];
+
+    const cards = [
+      { id: "task-1", type: "file", file: task1Path, x: 60, y: 120, width: 400, height: 300 },
+      { id: "task-3", type: "file", file: task3Path, x: 2310, y: 120, width: 400, height: 300 },
+      // Colored to hint "this one behaves differently" before reading any text.
+      { id: "task-4", type: "file", file: task4Path, x: 60, y: 820, width: 400, height: 300, color: "1" },
+    ];
+
+    const texts = [
+      { id: "welcome", type: "text", x: 0, y: -380, width: 3250, height: 320, text: s.welcome },
+      { id: "caption-1", type: "text", x: 520, y: 120, width: 420, height: 260, text: s.caption1 },
+      { id: "task-2-hint", type: "text", x: 60, y: 480, width: 880, height: 260, text: s.task2Hint(task2Path) },
+      {
+        id: "caption-4",
+        type: "text",
+        x: 520,
+        y: 820,
+        width: 420,
+        height: 300,
+        color: "1",
+        text: s.caption4(taskTag),
+      },
+      { id: "caption-3", type: "text", x: 2770, y: 120, width: 420, height: 580, text: s.caption3(doneStatus) },
+      {
+        id: "settings-overview",
+        type: "text",
+        x: 0,
+        y: 1600,
+        width: 2250,
+        height: 380,
+        text: s.settingsOverview,
+      },
+    ];
+
+    const edges = [
+      { id: "edge-1", fromNode: "task-1", fromSide: "right", toNode: "caption-1", toSide: "left" },
+      { id: "edge-3", fromNode: "task-3", fromSide: "right", toNode: "caption-3", toSide: "left" },
+      { id: "edge-4", fromNode: "task-4", fromSide: "right", toNode: "caption-4", toSide: "left" },
+    ];
+
+    const template = {
+      nodes: [...groups, ...cards, ...texts],
+      edges,
+      metadata: { version: "1.0-1.0", frontmatter: {} },
+    };
+
+    await this.app.vault.create(canvasPath, JSON.stringify(template, null, "\t"));
+    new Notice(s.noticeCreated(canvasPath));
+
+    // Populate Status/StartedAt for ①③ immediately (④ stays untouched since
+    // it's untagged, ② isn't placed at all), so opening the new canvas
+    // already shows the sync working rather than inert cards. Passed
+    // explicitly since the tutorial canvas is deliberately not
+    // this.settings.canvasPath (see method comment above).
+    await this.syncTaskCanvas(canvasPath);
   }
 
   // Obsidian's vault.create() throws on an existing path rather than
