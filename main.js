@@ -17,56 +17,55 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 // Per-language content for createTutorialCanvas(). Layout/geometry/edges are
 // shared (built once in createTutorialCanvas itself) — only strings live
-// here, so adding a language later (e.g. "ja") means adding one entry to
-// this object, not duplicating the layout code. Settings-tab labels are
-// referenced generically ("this plugin's settings tab") rather than quoted,
-// since the settings tab itself is still Japanese-only as of this command's
-// English tutorial — quoting an English label that doesn't exist yet would
-// be actively misleading. Revisit once the settings tab is translated.
+// here, so adding a language later means adding one entry to this object,
+// not duplicating the layout code. Japanese first (author's own language,
+// and the settings tab is Japanese-only right now) — English is added back
+// once the Japanese wording and the settings tab text are both finalized,
+// as a translation pass rather than parallel maintenance of both.
 const TUTORIAL_STRINGS = {
-  en: {
-    folderName: "Canvas Task Sync Tutorial",
-    canvasFileName: "Tutorial.canvas",
-    task1Title: "① Try moving this",
-    task2Title: "② Drag this in yourself",
-    task3Title: "③ Place in Done, try Archive",
-    task4Title: "④ Not synced (no tag)",
-    task1Body: "This is a Canvas Task Sync tutorial note. It's used as card ①. Feel free to edit or delete it.",
-    task2Body: "This is a Canvas Task Sync tutorial note. It's card ②, and hasn't been placed on the Canvas yet.",
-    task3Body: "This is a Canvas Task Sync tutorial note. It's used as card ③.",
-    task4Body: "This is a Canvas Task Sync tutorial note. It's used as card ④. It deliberately has no task tag.",
+  ja: {
+    folderName: "Canvas Task Sync チュートリアル",
+    canvasFileName: "チュートリアル.canvas",
+    task1Title: "①動かしてみる",
+    task2Title: "②Vaultからドラッグしてみる",
+    task3Title: "③Doneに置いてArchiveを試す",
+    task4Title: "④タグが無いので同期されない",
+    task1Body: "Canvas Task Syncのチュートリアル用ノートです。①のカードとして使われています。自由に編集・削除して構いません。",
+    task2Body: "Canvas Task Syncのチュートリアル用ノートです。②として、まだこのCanvasには配置していません。",
+    task3Body: "Canvas Task Syncのチュートリアル用ノートです。③のカードとして使われています。",
+    task4Body: "Canvas Task Syncのチュートリアル用ノートです。④のカードとして使われています。意図的にtaskタグを付けていません。",
     welcome:
-      "# 🗂️ Welcome to Canvas Task Sync\n\n" +
-      "The group a card sits in (Todo / Doing / Done) becomes that task note's `Status`. Drag a card into " +
-      "another group and its frontmatter is synced automatically.\n\n" +
-      "Four sample tasks are set up below — try them in order, ① through ④.",
+      "# 🗂️ Canvas Task Sync へようこそ\n\n" +
+      "このCanvas上のグループ名（Todo / Doing / Done）が、そのままタスクノートの `Status` になります。" +
+      "カードを別のグループへドラッグすると、ノートのfrontmatterが自動的に同期されます。\n\n" +
+      "下に4枚のサンプルタスクを用意しました。①→④の順に試してみてください。",
     caption1:
-      "① Try dragging this card into Doing or Done. On drop, the note's `Status` is automatically rewritten " +
-      "to match the group name (e.g. Doing).",
+      "① このカードを Doing や Done のグループへドラッグしてみてください。" +
+      "ドロップすると、ノートの `Status` が自動的にそのグループ名（例: Doing）へ書き換わります。",
     task2Hint: (task2Path) =>
-      `② Open the file explorer and find "${task2Path}". It hasn't been placed on this Canvas yet — drag & ` +
-      "drop it in around here, and its `Status` will be synced automatically, just like ①.",
+      `② ファイルエクスプローラを開き、「${task2Path}」というノートを探してください。` +
+      "このノートはまだCanvas上に配置していません。ドラッグ&ドロップでこのあたりに追加すると、①と同じように" +
+      " `Status` が自動的に書き込まれます。",
     caption4: (taskTag) =>
-      `④ This card never actually syncs — its note is missing \`tags: ${taskTag}\` in its frontmatter (this ` +
-      "is deliberate, for comparison with ①). Which tag counts as a task is configurable in this plugin's " +
-      "settings tab.",
+      `④ このカードは実は同期されません。ノートのfrontmatterに \`tags: ${taskTag}\` が付いていないためです` +
+      "（意図的な例です）。どのタグを対象にするかは、設定タブの「タスク判定タグ」で変更できます。",
     caption3: (doneStatus) =>
-      `③ This card already has \`Status: ${doneStatus}\`. The "Archive done tasks" command removes cards ` +
-      "like this from the Canvas.\n\n" +
-      "• Only the card's placement on the Canvas is removed — the note itself and its Status field are left untouched\n" +
-      "• Which group counts as \"done\" for Archive is configurable in this plugin's settings tab\n" +
-      "• Archive can also run automatically on a chosen weekday (also in the settings tab) — this is OFF by " +
-      "default, so only the manual command runs unless you turn it on\n\n" +
-      "Want to try it for real? The command always acts on your configured \"Target Canvas path\" — point that " +
-      "setting at this tutorial's canvas file first, run the command, then switch it back.",
+      `③ このカードは既に \`Status: ${doneStatus}\` になっています。「Archive done tasks」コマンドを実行す` +
+      "ると、このカードだけCanvasから消えます。\n\n" +
+      "・消えるのはCanvas上の配置だけで、ノート自体とStatusフィールドはそのまま残ります\n" +
+      "・Archiveの対象グループ名は、設定タブの「Done扱いのグループ名」で変更できます\n" +
+      "・曜日を指定して自動実行することもできます（設定タブの「Archive自動実行」トグル）。デフォルトはOFFで、" +
+      "手動コマンドだけがいつでも使えます\n\n" +
+      "実際に試したい場合は、設定タブの「対象Canvasパス」を一時的にこのチュートリアルCanvasに向けてから、" +
+      "コマンドを実行してみてください。",
     settingsOverview:
-      "## ⚙️ What you can customize in the settings tab\n\n" +
-      "- **Target Canvas path**: point the sync at a different Canvas file\n" +
-      "- **Status / ModifiedAt / CompletedAt / StartedAt field names**: the frontmatter keys the plugin " +
-      "writes. All except Status can be left blank to turn that field off entirely\n" +
-      "- Turning off **StartedAt** also turns off the elapsed-days badge on Canvas cards",
-    noticeCreated: (path) => `Created tutorial canvas: ${path}`,
-    noticeExists: (path) => `Tutorial canvas already exists: ${path}. Not overwriting.`,
+      "## ⚙️ 設定タブでカスタマイズできること\n\n" +
+      "- **対象Canvasパス**: このCanvas以外のファイルを同期対象にしたい場合はここを変更します\n" +
+      "- **Status / ModifiedAt / CompletedAt / StartedAt フィールド名**: 自動で書き込まれるfrontmatterの" +
+      "項目名を変更できます。Status以外は空欄にすると、その項目への書き込み自体をOFFにできます\n" +
+      "- **StartedAt** をOFFにすると、Canvasカード上の経過日数バッジも表示されなくなります",
+    noticeCreated: (path) => `チュートリアル用Canvasを作成しました: ${path}`,
+    noticeExists: (path) => `チュートリアル用Canvasは既に存在します: ${path}（上書きしません）`,
   },
 };
 
@@ -132,10 +131,10 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "create-tutorial-canvas-en",
-      name: "Create tutorial canvas (English)",
+      id: "create-tutorial-canvas-ja",
+      name: "チュートリアル用Canvasを作成（日本語）",
       callback: async () => {
-        await this.createTutorialCanvas("en");
+        await this.createTutorialCanvas("ja");
       },
     });
 
