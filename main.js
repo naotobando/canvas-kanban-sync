@@ -2,7 +2,7 @@ const { Plugin, Notice, TFile, PluginSettingTab, Setting } = require("obsidian")
 
 const DEFAULT_SETTINGS = {
   canvasPath: "Canvas Task Sync.canvas",
-  archiveAutoEnabled: true,
+  archiveAutoEnabled: false,
   archiveWeekday: 6, // 0=Sun ... 6=Sat
   lastArchivedAt: 0,
   statusField: "Status",
