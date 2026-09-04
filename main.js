@@ -2,6 +2,7 @@ const { Plugin, Notice, TFile, PluginSettingTab, Setting } = require("obsidian")
 
 const DEFAULT_SETTINGS = {
   canvasPath: "Canvas Task Sync.canvas",
+  archiveAutoEnabled: true,
   archiveWeekday: 6, // 0=Sun ... 6=Sat
   lastArchivedAt: 0,
   statusField: "Status",
@@ -75,13 +76,17 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
       },
     });
 
-    if (this.settings.lastArchivedAt < this.getLastConfiguredWeekdayMidnight()) {
+    // archiveAutoEnabled only gates the automatic weekly trigger below —
+    // the "Archive done tasks" command stays available either way, for
+    // anyone who wants to archive on their own schedule instead of a fixed
+    // weekday.
+    if (this.settings.archiveAutoEnabled && this.settings.lastArchivedAt < this.getLastConfiguredWeekdayMidnight()) {
       await this.archiveDoneTasks(true);
     }
 
     this.registerInterval(
       window.setInterval(async () => {
-        if (this.settings.lastArchivedAt < this.getLastConfiguredWeekdayMidnight()) {
+        if (this.settings.archiveAutoEnabled && this.settings.lastArchivedAt < this.getLastConfiguredWeekdayMidnight()) {
           await this.archiveDoneTasks(true);
         }
       }, 1000 * 60 * 60)
@@ -748,18 +753,34 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Archive実行曜日")
-      .setDesc("Doneグループのノードを週一で自動的にCanvasから取り除く曜日（ノートとStatusは維持されます）")
-      .addDropdown((dropdown) => {
-        WEEKDAY_LABELS.forEach((label, index) => {
-          dropdown.addOption(String(index), `${label}曜日`);
-        });
-        dropdown.setValue(String(this.plugin.settings.archiveWeekday));
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.archiveWeekday = Number(value);
+      .setName("Archive自動実行")
+      .setDesc(
+        "週一で自動的にDoneグループのノードをCanvasから取り除く機能のOn/Off。" +
+          "OFFにしても、コマンド「Archive done tasks」による手動実行はいつでも使えます"
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.archiveAutoEnabled).onChange(async (value) => {
+          this.plugin.settings.archiveAutoEnabled = value;
           await this.plugin.saveSettings();
+          this.display(); // re-render to show/hide the weekday picker below
+        })
+      );
+
+    if (this.plugin.settings.archiveAutoEnabled) {
+      new Setting(containerEl)
+        .setName("Archive実行曜日")
+        .setDesc("Doneグループのノードを週一で自動的にCanvasから取り除く曜日（ノートとStatusは維持されます）")
+        .addDropdown((dropdown) => {
+          WEEKDAY_LABELS.forEach((label, index) => {
+            dropdown.addOption(String(index), `${label}曜日`);
+          });
+          dropdown.setValue(String(this.plugin.settings.archiveWeekday));
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.archiveWeekday = Number(value);
+            await this.plugin.saveSettings();
+          });
         });
-      });
+    }
 
     containerEl.createEl("h3", { text: "フロントマターのフィールド名" });
     containerEl.createEl("p", {
