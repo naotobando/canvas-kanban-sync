@@ -309,6 +309,10 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
     if (!canvas?.nodes) return;
 
     const { startedAtField } = this.settings;
+    // Badges are derived entirely from StartedAt — with the field disabled
+    // (see the settings tab) there's no data to show, so skip walking the
+    // canvas's nodes at all rather than silently finding nothing per-node.
+    if (!startedAtField) return;
 
     for (const node of canvas.nodes.values()) {
       if (!node.file || !node.nodeEl) continue;
@@ -430,15 +434,21 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
             const wasBacklog = this.isBacklog(prevStatus);
 
             fm[statusField] = nextStatus;
-            fm[modifiedAtField] = now;
+            // ModifiedAt/CompletedAt/StartedAt are optional metadata, not
+            // core to the plugin (unlike Status) — an empty field name
+            // means the user has turned that field off, so skip writing it
+            // rather than falling back to a default name (see settings tab).
+            if (modifiedAtField) fm[modifiedAtField] = now;
 
-            if (nextStatus === "Backlog") {
-              delete fm[startedAtField];
-            } else if (wasBacklog) {
-              fm[startedAtField] = now;
+            if (startedAtField) {
+              if (nextStatus === "Backlog") {
+                delete fm[startedAtField];
+              } else if (wasBacklog) {
+                fm[startedAtField] = now;
+              }
             }
 
-            if (nextStatus === doneStatus) {
+            if (completedAtField && nextStatus === doneStatus) {
               fm[completedAtField] = now;
             }
 
@@ -492,8 +502,8 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
         // treats them as resting, so they never reach this branch); they
         // only normalize to empty once something moves them again.
         delete fm2[statusField];
-        fm2[modifiedAtField] = this.now();
-        delete fm2[startedAtField];
+        if (modifiedAtField) fm2[modifiedAtField] = this.now();
+        if (startedAtField) delete fm2[startedAtField];
       });
 
       reverted++;
@@ -805,39 +815,42 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("ModifiedAtフィールド名")
-      .setDesc("Status更新時に現在時刻を書き込むフィールド名")
+      .setDesc("Status更新時に現在時刻を書き込むフィールド名。空欄にするとこのフィールドへの書き込みをOFFにできます（Statusとは異なり必須ではありません）")
       .addText((text) =>
         text
           .setPlaceholder("ModifiedAt")
           .setValue(this.plugin.settings.modifiedAtField)
           .onChange(async (value) => {
-            this.plugin.settings.modifiedAtField = value.trim() || DEFAULT_SETTINGS.modifiedAtField;
+            this.plugin.settings.modifiedAtField = value.trim();
             await this.plugin.saveSettings();
           })
       );
 
     new Setting(containerEl)
       .setName("CompletedAtフィールド名")
-      .setDesc("Doneグループに入った時刻を書き込むフィールド名")
+      .setDesc("Doneグループに入った時刻を書き込むフィールド名。空欄にするとこのフィールドへの書き込みをOFFにできます（Statusとは異なり必須ではありません）")
       .addText((text) =>
         text
           .setPlaceholder("CompletedAt")
           .setValue(this.plugin.settings.completedAtField)
           .onChange(async (value) => {
-            this.plugin.settings.completedAtField = value.trim() || DEFAULT_SETTINGS.completedAtField;
+            this.plugin.settings.completedAtField = value.trim();
             await this.plugin.saveSettings();
           })
       );
 
     new Setting(containerEl)
       .setName("StartedAtフィールド名")
-      .setDesc("休止状態（Statusが未設定）から最初に抜けた時刻を書き込むフィールド名（経過日数の起点。休止状態に戻るとクリアされます）")
+      .setDesc(
+        "休止状態（Statusが未設定）から最初に抜けた時刻を書き込むフィールド名（経過日数の起点。休止状態に戻るとクリアされます）。" +
+          "空欄にするとこのフィールドへの書き込みと、Canvasカード上の経過日数バッジ表示の両方をOFFにできます（Statusとは異なり必須ではありません）"
+      )
       .addText((text) =>
         text
           .setPlaceholder("StartedAt")
           .setValue(this.plugin.settings.startedAtField)
           .onChange(async (value) => {
-            this.plugin.settings.startedAtField = value.trim() || DEFAULT_SETTINGS.startedAtField;
+            this.plugin.settings.startedAtField = value.trim();
             await this.plugin.saveSettings();
           })
       );
