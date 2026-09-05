@@ -52,7 +52,7 @@ const TUTORIAL_STRINGS = {
     caption3: (doneStatus) =>
       `③ このカードは既に \`Status: ${doneStatus}\` になっています。「Archive done tasks」コマンドを実行す` +
       "ると、このカードだけCanvasから消えます。\n\n" +
-      "・消えるのはCanvas上の配置だけで、ノート自体とStatusフィールドはそのまま残ります\n" +
+      "・消えるのはCanvas上の配置だけで、ノート自体とStatusプロパティはそのまま残ります\n" +
       "・Archiveの対象グループ名は、設定タブの「Done扱いにするグループ」で変更できます\n" +
       "・曜日を指定して自動実行することもできます（設定タブの「Archive自動実行」トグル）。デフォルトはOFFで、" +
       "手動コマンドだけがいつでも使えます\n\n" +
@@ -61,7 +61,7 @@ const TUTORIAL_STRINGS = {
     settingsOverview:
       "## ⚙️ 設定タブでカスタマイズできること\n\n" +
       "- **対象Canvasパス**: このCanvas以外のファイルを同期対象にしたい場合はここを変更します\n" +
-      "- **Status / ModifiedAt / CompletedAt / StartedAt フィールド名**: 自動で書き込まれるfrontmatterの" +
+      "- **Status / ModifiedAt / CompletedAt / StartedAt プロパティ名**: 自動で書き込まれるfrontmatterの" +
       "項目名を変更できます。Status以外は空欄にすると、その項目への書き込み自体をOFFにできます\n" +
       "- **StartedAt** をOFFにすると、Canvasカード上の経過日数バッジも表示されなくなります",
     noticeCreated: (path) => `チュートリアル用Canvasを作成しました: ${path}`,
@@ -943,17 +943,17 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
         });
     }
 
-    containerEl.createEl("h3", { text: "フロントマターのフィールド名" });
+    containerEl.createEl("h3", { text: "同期に使うプロパティ名" });
     containerEl.createEl("p", {
       text:
-        "変更は今後の同期から適用されます。既存ノートのフィールド名は自動では移行されません。" +
+        "変更は今後の同期から適用されます。既存ノートのプロパティ名は自動では移行されません。" +
         "運用中に変更する場合は、VSCode等の外部エディタで一括置換してください。",
       cls: "setting-item-description",
     });
 
     new Setting(containerEl)
-      .setName("Statusフィールド名")
-      .setDesc("Canvas上のグループ名を書き込むフィールド名")
+      .setName("Statusとして使うプロパティ")
+      .setDesc("Canvas上のグループ名を書き込むプロパティ名")
       .addText((text) =>
         text
           .setPlaceholder("Status")
@@ -965,8 +965,24 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("ModifiedAtフィールド名")
-      .setDesc("Status更新時に現在時刻を書き込むフィールド名。空欄にするとこのフィールドへの書き込みをOFFにできます（Statusとは異なり必須ではありません）")
+      .setName("StartedAtとして使うプロパティ")
+      .setDesc(
+        "休止状態（Statusが未設定）から最初に抜けた時刻を書き込むプロパティ名（経過日数の起点。休止状態に戻るとクリアされます）。" +
+          "空欄にするとこのプロパティへの書き込みと、Canvasカード上の経過日数バッジ表示の両方をOFFにできます"
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("StartedAt")
+          .setValue(this.plugin.settings.startedAtField)
+          .onChange(async (value) => {
+            this.plugin.settings.startedAtField = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("ModifiedAtとして使うプロパティ")
+      .setDesc("Status更新時に現在時刻を書き込むプロパティ名。空欄にするとこのプロパティへの書き込みをOFFにできます")
       .addText((text) =>
         text
           .setPlaceholder("ModifiedAt")
@@ -978,30 +994,14 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("CompletedAtフィールド名")
-      .setDesc("Doneグループに入った時刻を書き込むフィールド名。空欄にするとこのフィールドへの書き込みをOFFにできます（Statusとは異なり必須ではありません）")
+      .setName("CompletedAtとして使うプロパティ")
+      .setDesc("Doneグループに入った時刻を書き込むプロパティ名。空欄にするとこのプロパティへの書き込みをOFFにできます")
       .addText((text) =>
         text
           .setPlaceholder("CompletedAt")
           .setValue(this.plugin.settings.completedAtField)
           .onChange(async (value) => {
             this.plugin.settings.completedAtField = value.trim();
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("StartedAtフィールド名")
-      .setDesc(
-        "休止状態（Statusが未設定）から最初に抜けた時刻を書き込むフィールド名（経過日数の起点。休止状態に戻るとクリアされます）。" +
-          "空欄にするとこのフィールドへの書き込みと、Canvasカード上の経過日数バッジ表示の両方をOFFにできます（Statusとは異なり必須ではありません）"
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("StartedAt")
-          .setValue(this.plugin.settings.startedAtField)
-          .onChange(async (value) => {
-            this.plugin.settings.startedAtField = value.trim();
             await this.plugin.saveSettings();
           })
       );
