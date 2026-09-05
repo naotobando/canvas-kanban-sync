@@ -873,6 +873,13 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     containerEl.createEl("h2", { text: "Canvas Kanban Sync" });
+    containerEl.createEl("p", {
+      text:
+        "Obsidian CanvasのグループをKanbanボードの列として使い、カードを別グループへ動かすとノートのStatus" +
+        "プロパティが自動的に同期されます。グループ名がそのままStatus値になるので、列の名前や数は自由に変更" +
+        "できます。以下では、対象Canvasや同期の細かい挙動を設定できます。",
+      cls: "setting-item-description",
+    });
 
     new Setting(containerEl)
       .setName("対象Canvasパス")
