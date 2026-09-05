@@ -53,7 +53,7 @@ const TUTORIAL_STRINGS = {
       `③ このカードは既に \`Status: ${doneStatus}\` になっています。「Archive done tasks」コマンドを実行す` +
       "ると、このカードだけCanvasから消えます。\n\n" +
       "・消えるのはCanvas上の配置だけで、ノート自体とStatusフィールドはそのまま残ります\n" +
-      "・Archiveの対象グループ名は、設定タブの「Done扱いのグループ名」で変更できます\n" +
+      "・Archiveの対象グループ名は、設定タブの「Done扱いにするグループ」で変更できます\n" +
       "・曜日を指定して自動実行することもできます（設定タブの「Archive自動実行」トグル）。デフォルトはOFFで、" +
       "手動コマンドだけがいつでも使えます\n\n" +
       "実際に試したい場合は、設定タブの「対象Canvasパス」を一時的にこのチュートリアルCanvasに向けてから、" +
@@ -876,7 +876,7 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("対象Canvasパス")
-      .setDesc("グループ名がそのままStatusになる、同期対象のCanvasファイルへのパス（Vaultルートからの相対パス）")
+      .setDesc("対象のCanvasファイルへのパス（Vaultルートからの相対パス）")
       .addText((text) =>
         text
           .setPlaceholder("Canvas Kanban Sync.canvas")
@@ -901,11 +901,8 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Done扱いのグループ名")
-      .setDesc(
-        "このCanvasグループ名（＝Status値）を「完了」として扱う。Archiveコマンドの対象・CompletedAt記録・" +
-          "休止状態への自動復帰の除外判定すべてに使われる（グループ名は他と同様ユーザー任意でリネーム可能）"
-      )
+      .setName("Done扱いにするグループ")
+      .setDesc("このCanvasグループ名を「完了」として扱う。Archiveコマンドの対象・CompletedAt記録の判定対象")
       .addText((text) =>
         text
           .setPlaceholder("Done")
@@ -919,8 +916,8 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Archive自動実行")
       .setDesc(
-        "週一で自動的にDoneグループのノードをCanvasから取り除く機能のOn/Off。" +
-          "OFFにしても、コマンド「Archive done tasks」による手動実行はいつでも使えます"
+        "週一で自動的にDone扱いのグループのノードをCanvasから取り除く機能のOn/Off。" +
+          "OFFにしても、コマンド「Archive done tasks」による手動実行は可能"
       )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.archiveAutoEnabled).onChange(async (value) => {
@@ -933,7 +930,7 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
     if (this.plugin.settings.archiveAutoEnabled) {
       new Setting(containerEl)
         .setName("Archive実行曜日")
-        .setDesc("Doneグループのノードを週一で自動的にCanvasから取り除く曜日（ノートとStatusは維持されます）")
+        .setDesc("Done扱いのグループのノードを週一で自動的にCanvasから取り除く曜日（ノートとStatusは維持）")
         .addDropdown((dropdown) => {
           WEEKDAY_LABELS.forEach((label, index) => {
             dropdown.addOption(String(index), `${label}曜日`);
