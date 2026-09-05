@@ -30,36 +30,38 @@ const TUTORIAL_STRINGS = {
     task2Title: "②Vaultからドラッグしてみる",
     task3Title: "③Doneに置いてArchiveを試す",
     task4Title: "④タグが無いので同期されない",
-    task1Body: "Canvas Kanban Syncのチュートリアル用ノートです。①のカードとして使われています。自由に編集・削除して構いません。",
+    task1Body:
+      "Canvas Kanban Syncのチュートリアル用ノートです。\n\n" +
+      "このカードを Doing や Done のグループへドラッグしてみてください。ドロップすると、このノートの " +
+      "`Status` が自動的にそのグループ名（例: Doing）へ書き換わります。\n\n" +
+      "自由に編集・削除して構いません。",
     task2Body: "Canvas Kanban Syncのチュートリアル用ノートです。②として、まだこのCanvasには配置していません。",
-    task3Body: "Canvas Kanban Syncのチュートリアル用ノートです。③のカードとして使われています。",
-    task4Body: "Canvas Kanban Syncのチュートリアル用ノートです。④のカードとして使われています。意図的にtaskタグを付けていません。",
-    welcome:
+    task3Body: (doneStatus) =>
+      `③ このカードは既に \`Status: ${doneStatus}\` になっています。「Archive done tasks」コマンドを実行す` +
+      "ると、このカードだけCanvasから消えます。\n\n" +
+      "・消えるのはCanvas上の配置だけで、ノート自体とStatusプロパティはそのまま残ります\n" +
+      "・Archiveの対象グループ名は、設定画面の「Done扱いにするグループ」で変更できます\n" +
+      "・曜日を指定して自動実行することもできます（設定画面の「Archive自動実行」トグル）。デフォルトはOFFで、" +
+      "手動コマンドだけがいつでも使えます\n\n" +
+      "実際に試したい場合は、コマンドパレットから実行してみてください。",
+    task4Body: (taskTag) =>
+      `④ このカードは実は同期されません。ノートのfrontmatterに \`tags: ${taskTag}\` が付いていないためです` +
+      "（意図的な例です）。どのタグを対象にするかは、設定画面の「タスク判定タグ」で変更できます。",
+    welcome: (canvasPath) =>
       "# 🗂️ Canvas Kanban Sync へようこそ\n\n" +
       "このCanvas上のグループ名（Todo / Doing / Done）が、そのままタスクノートの `Status` になります。" +
       "カードを別のグループへドラッグすると、ノートのfrontmatterが自動的に同期されます。\n\n" +
-      "下に4枚のサンプルタスクを用意しました。①→④の順に試してみてください。",
-    caption1:
-      "① このカードを Doing や Done のグループへドラッグしてみてください。" +
-      "ドロップすると、ノートの `Status` が自動的にそのグループ名（例: Doing）へ書き換わります。",
+      "## ⓪ さきに設定を変更してください\n\n" +
+      "このプラグインは常に1つのCanvasだけを同期対象にします。実際に手を動かして試すには、設定画面の" +
+      "「対象Canvasパス」を次の値に変更してください。\n\n" +
+      `\`${canvasPath}\`\n\n` +
+      "変更したら、下の4枚のサンプルタスクを①→④の順に試してみてください。",
     task2Hint: (task2Path) =>
       `② ファイルエクスプローラを開き、「${task2Path}」というノートを探してください。` +
       "このノートはまだCanvas上に配置していません。ドラッグ&ドロップでこのあたりに追加すると、①と同じように" +
       " `Status` が自動的に書き込まれます。",
-    caption4: (taskTag) =>
-      `④ このカードは実は同期されません。ノートのfrontmatterに \`tags: ${taskTag}\` が付いていないためです` +
-      "（意図的な例です）。どのタグを対象にするかは、設定タブの「タスク判定タグ」で変更できます。",
-    caption3: (doneStatus) =>
-      `③ このカードは既に \`Status: ${doneStatus}\` になっています。「Archive done tasks」コマンドを実行す` +
-      "ると、このカードだけCanvasから消えます。\n\n" +
-      "・消えるのはCanvas上の配置だけで、ノート自体とStatusプロパティはそのまま残ります\n" +
-      "・Archiveの対象グループ名は、設定タブの「Done扱いにするグループ」で変更できます\n" +
-      "・曜日を指定して自動実行することもできます（設定タブの「Archive自動実行」トグル）。デフォルトはOFFで、" +
-      "手動コマンドだけがいつでも使えます\n\n" +
-      "実際に試したい場合は、設定タブの「対象Canvasパス」を一時的にこのチュートリアルCanvasに向けてから、" +
-      "コマンドを実行してみてください。",
     settingsOverview:
-      "## ⚙️ 設定タブでカスタマイズできること\n\n" +
+      "## ⚙️ 設定画面でカスタマイズできること\n\n" +
       "- **対象Canvasパス**: このCanvas以外のファイルを同期対象にしたい場合はここを変更します\n" +
       "- **Status / ModifiedAt / CompletedAt / StartedAt プロパティ名**: 自動で書き込まれるfrontmatterの" +
       "項目名を変更できます。Status以外は空欄にすると、その項目への書き込み自体をOFFにできます\n" +
@@ -698,12 +700,12 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
     await this.app.vault.create(task2Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task2Body}\n`);
 
     const task3Path = await this.getUniqueFilePath(`${folderPath}/${s.task3Title}.md`);
-    await this.app.vault.create(task3Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task3Body}\n`);
+    await this.app.vault.create(task3Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task3Body(doneStatus)}\n`);
 
     // No tags field at all — deliberately not recognized as a task note,
     // even though it's about to be placed in a group like ① and ③ are.
     const task4Path = await this.getUniqueFilePath(`${folderPath}/${s.task4Title}.md`);
-    await this.app.vault.create(task4Path, `${s.task4Body}\n`);
+    await this.app.vault.create(task4Path, `${s.task4Body(taskTag)}\n`);
 
     const groups = [
       { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
@@ -719,20 +721,8 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
     ];
 
     const texts = [
-      { id: "welcome", type: "text", x: 0, y: -380, width: 3250, height: 320, text: s.welcome },
-      { id: "caption-1", type: "text", x: 520, y: 120, width: 420, height: 260, text: s.caption1 },
+      { id: "welcome", type: "text", x: 0, y: -460, width: 3250, height: 400, text: s.welcome(canvasPath) },
       { id: "task-2-hint", type: "text", x: 60, y: 480, width: 880, height: 260, text: s.task2Hint(task2Path) },
-      {
-        id: "caption-4",
-        type: "text",
-        x: 520,
-        y: 820,
-        width: 420,
-        height: 300,
-        color: "1",
-        text: s.caption4(taskTag),
-      },
-      { id: "caption-3", type: "text", x: 2770, y: 120, width: 420, height: 580, text: s.caption3(doneStatus) },
       {
         id: "settings-overview",
         type: "text",
@@ -744,11 +734,7 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
       },
     ];
 
-    const edges = [
-      { id: "edge-1", fromNode: "task-1", fromSide: "right", toNode: "caption-1", toSide: "left" },
-      { id: "edge-3", fromNode: "task-3", fromSide: "right", toNode: "caption-3", toSide: "left" },
-      { id: "edge-4", fromNode: "task-4", fromSide: "right", toNode: "caption-4", toSide: "left" },
-    ];
+    const edges = [];
 
     const template = {
       nodes: [...groups, ...cards, ...texts],
