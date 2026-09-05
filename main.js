@@ -1,7 +1,7 @@
 const { Plugin, Notice, TFile, PluginSettingTab, Setting } = require("obsidian");
 
 const DEFAULT_SETTINGS = {
-  canvasPath: "Canvas Task Sync.canvas",
+  canvasPath: "Canvas Kanban Sync.canvas",
   archiveAutoEnabled: false,
   archiveWeekday: 6, // 0=Sun ... 6=Sat
   lastArchivedAt: 0,
@@ -24,18 +24,18 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 // as a translation pass rather than parallel maintenance of both.
 const TUTORIAL_STRINGS = {
   ja: {
-    folderName: "Canvas Task Sync チュートリアル",
+    folderName: "Canvas Kanban Sync チュートリアル",
     canvasFileName: "チュートリアル.canvas",
     task1Title: "①動かしてみる",
     task2Title: "②Vaultからドラッグしてみる",
     task3Title: "③Doneに置いてArchiveを試す",
     task4Title: "④タグが無いので同期されない",
-    task1Body: "Canvas Task Syncのチュートリアル用ノートです。①のカードとして使われています。自由に編集・削除して構いません。",
-    task2Body: "Canvas Task Syncのチュートリアル用ノートです。②として、まだこのCanvasには配置していません。",
-    task3Body: "Canvas Task Syncのチュートリアル用ノートです。③のカードとして使われています。",
-    task4Body: "Canvas Task Syncのチュートリアル用ノートです。④のカードとして使われています。意図的にtaskタグを付けていません。",
+    task1Body: "Canvas Kanban Syncのチュートリアル用ノートです。①のカードとして使われています。自由に編集・削除して構いません。",
+    task2Body: "Canvas Kanban Syncのチュートリアル用ノートです。②として、まだこのCanvasには配置していません。",
+    task3Body: "Canvas Kanban Syncのチュートリアル用ノートです。③のカードとして使われています。",
+    task4Body: "Canvas Kanban Syncのチュートリアル用ノートです。④のカードとして使われています。意図的にtaskタグを付けていません。",
     welcome:
-      "# 🗂️ Canvas Task Sync へようこそ\n\n" +
+      "# 🗂️ Canvas Kanban Sync へようこそ\n\n" +
       "このCanvas上のグループ名（Todo / Doing / Done）が、そのままタスクノートの `Status` になります。" +
       "カードを別のグループへドラッグすると、ノートのfrontmatterが自動的に同期されます。\n\n" +
       "下に4枚のサンプルタスクを用意しました。①→④の順に試してみてください。",
@@ -69,7 +69,7 @@ const TUTORIAL_STRINGS = {
   },
 };
 
-module.exports = class CanvasTaskSyncPlugin extends Plugin {
+module.exports = class CanvasKanbanSyncPlugin extends Plugin {
   async onload() {
     this.syncTimer = null;
     this.isSyncing = false;
@@ -77,7 +77,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
     const data = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 
-    this.addSettingTab(new CanvasTaskSyncSettingTab(this.app, this));
+    this.addSettingTab(new CanvasKanbanSyncSettingTab(this.app, this));
 
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
@@ -156,7 +156,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
 
     this.setupHoverZoneObserver();
 
-    new Notice("Canvas Task Sync loaded");
+    new Notice("Canvas Kanban Sync loaded");
   }
 
   onunload() {
@@ -862,7 +862,7 @@ module.exports = class CanvasTaskSyncPlugin extends Plugin {
   }
 };
 
-class CanvasTaskSyncSettingTab extends PluginSettingTab {
+class CanvasKanbanSyncSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -872,14 +872,14 @@ class CanvasTaskSyncSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "Canvas Task Sync" });
+    containerEl.createEl("h2", { text: "Canvas Kanban Sync" });
 
     new Setting(containerEl)
       .setName("対象Canvasパス")
       .setDesc("グループ名がそのままStatusになる、同期対象のCanvasファイルへのパス（Vaultルートからの相対パス）")
       .addText((text) =>
         text
-          .setPlaceholder("Canvas Task Sync.canvas")
+          .setPlaceholder("Canvas Kanban Sync.canvas")
           .setValue(this.plugin.settings.canvasPath)
           .onChange(async (value) => {
             this.plugin.settings.canvasPath = value.trim() || DEFAULT_SETTINGS.canvasPath;
