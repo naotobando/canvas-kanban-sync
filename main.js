@@ -1032,7 +1032,11 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
     if (this.plugin.settings.archiveAutoEnabled) {
       new Setting(containerEl)
         .setName("Archive weekday")
-        .setDesc("Weekday on which Done cards are automatically removed from the Canvas each week (the note and its Status are kept)")
+        .setDesc(
+          "Weekday on which Done cards are automatically removed from the Canvas (the note and its Status " +
+            "are kept). This is checked when Obsidian starts and every hour it stays open — not at an exact " +
+            "time, and it still runs on next launch if Obsidian wasn't open on that day"
+        )
         .addDropdown((dropdown) => {
           WEEKDAY_LABELS.forEach((label, index) => {
             dropdown.addOption(String(index), label);
