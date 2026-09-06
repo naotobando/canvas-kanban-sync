@@ -13,7 +13,7 @@ const DEFAULT_SETTINGS = {
   doneStatus: "Done",
 };
 
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 // Per-language content for createTutorialCanvas(). Layout/geometry/edges are
 // shared (built once in createTutorialCanvas itself) — only strings live
@@ -42,13 +42,13 @@ const TUTORIAL_STRINGS = {
       `③ このカードは既に \`Status: ${doneStatus}\` になっています。「Archive done tasks」コマンドを実行す` +
       "ると、このカードだけCanvasから消えます。\n\n" +
       "・消えるのはCanvas上の配置だけで、ノート自体とStatusプロパティはそのまま残ります\n" +
-      "・Archiveの対象グループ名は、設定画面の「Done扱いにするグループ」で変更できます\n" +
-      "・曜日を指定して自動実行することもできます（設定画面の「Archive自動実行」トグル）。デフォルトはOFFで、" +
+      "・Archiveの対象グループ名は、設定画面の「Group treated as Done」で変更できます\n" +
+      "・曜日を指定して自動実行することもできます（設定画面の「Automatic Archive」トグル）。デフォルトはOFFで、" +
       "手動コマンドだけがいつでも使えます\n\n" +
       "実際に試したい場合は、コマンドパレットから実行してみてください。",
     task4Body: (taskTag) =>
       `④ このカードは実は同期されません。ノートのfrontmatterに \`tags: ${taskTag}\` が付いていないためです` +
-      "（意図的な例です）。どのタグを対象にするかは、設定画面の「タスク判定タグ」で変更できます。",
+      "（意図的な例です）。どのタグを対象にするかは、設定画面の「Task tag」で変更できます。",
     task5Body:
       "⑤ このカードのタイトル脇にある「ⓘ」マークにカーソルを合わせてみてください。普段は隠れている" +
       "Status等のプロパティが一時的に表示されます。クリックすると、固定表示⇔非表示を切り替えられます。",
@@ -68,7 +68,7 @@ const TUTORIAL_STRINGS = {
     setupCallout: (canvasPath) =>
       "> [!warning] ⓪ さきに設定を変更してください\n" +
       "> このプラグインは常に1つのCanvasだけを同期対象にします。実際に手を動かして試すには、設定画面の" +
-      "「対象Canvasパス」を次の値に変更してください。\n" +
+      "「Target Canvas path」を次の値に変更してください。\n" +
       ">\n" +
       `> \`${canvasPath}\``,
     task2Hint: (task2Path) =>
@@ -77,19 +77,13 @@ const TUTORIAL_STRINGS = {
       " `Status` が自動的に書き込まれます。",
     settingsOverview:
       "## ⚙️ 設定画面でカスタマイズできること\n\n" +
-      "- **対象Canvasパス**: このCanvas以外のファイルを同期対象にしたい場合はここを変更します\n" +
+      "- **Target Canvas path**: このCanvas以外のファイルを同期対象にしたい場合はここを変更します\n" +
       "- **Status / ModifiedAt / CompletedAt / StartedAt プロパティ名**: 自動で書き込まれるfrontmatterの" +
       "項目名を変更できます。Status以外は空欄にすると、その項目への書き込み自体をOFFにできます\n" +
       "- **StartedAt** をOFFにすると、Canvasカード上の経過日数バッジも表示されなくなります",
     noticeCreated: (path) => `チュートリアル用Canvasを作成しました: ${path}`,
     noticeExists: (path) => `チュートリアル用Canvasは既に存在します: ${path}（上書きしません）`,
   },
-  // Settings-screen labels are referenced generically ("the settings
-  // screen", paraphrased field names) rather than quoted, since the
-  // settings screen itself is still Japanese-only as of this tutorial —
-  // quoting an English label that doesn't exist yet would be actively
-  // misleading. Revisit once the settings screen is translated (same
-  // step ⑤ as this file, just not done yet).
   en: {
     folderName: "Canvas Kanban Sync Tutorial",
     canvasFileName: "Tutorial.canvas",
@@ -109,13 +103,13 @@ const TUTORIAL_STRINGS = {
       `③ This card already has \`Status: ${doneStatus}\`. Running the "Archive done tasks" command removes ` +
       "just this card from the Canvas.\n\n" +
       "- Only the card's placement on the Canvas is removed — the note itself and its Status property are left untouched\n" +
-      "- Which group counts as \"done\" for Archive is configurable in the settings screen\n" +
-      "- Archive can also run automatically on a chosen weekday (also in the settings screen). This is OFF by " +
-      "default, so only the manual command runs unless you turn it on\n\n" +
+      "- Which group counts as \"done\" for Archive is the \"Group treated as Done\" setting\n" +
+      "- Archive can also run automatically on a chosen weekday (the \"Automatic Archive\" toggle). This is OFF " +
+      "by default, so only the manual command runs unless you turn it on\n\n" +
       "If you'd like to try it for real, run it from the command palette.",
     task4Body: (taskTag) =>
       `④ This card never actually syncs — its note is missing \`tags: ${taskTag}\` in its frontmatter (this ` +
-      "is deliberate). Which tag counts as a task is configurable in the settings screen.",
+      "is deliberate). Which tag counts as a task is the \"Task tag\" setting.",
     task5Body:
       "⑤ Hover the “ⓘ” mark next to this card's title. Properties like Status, normally hidden, appear " +
       "temporarily. Click it to pin them open (or closed).",
@@ -360,7 +354,7 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
       const zone = document.createElement("span");
       zone.className = "ctsync-hover-zone";
       zone.textContent = "ⓘ";
-      zone.setAttribute("aria-label", "プロパティを表示（クリックで固定表示）");
+      zone.setAttribute("aria-label", "Show properties (click to pin open)");
 
       // The properties block is a real, editable widget (not a read-only
       // rendering) — a hover-only reveal would close the moment the cursor
@@ -709,7 +703,7 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
 
       new Notice(
         auto
-          ? `Archive実行（自動）: ${toRemove.size}件`
+          ? `Archive ran automatically: ${toRemove.size} task(s)`
           : `Archived ${toRemove.size} done task(s) from canvas.`
       );
     } catch (error) {
@@ -975,15 +969,16 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Canvas Kanban Sync" });
     containerEl.createEl("p", {
       text:
-        "Obsidian CanvasのグループをKanbanボードの列として使い、カードを別グループへ動かすとノートのStatus" +
-        "プロパティが自動的に同期されます。グループ名がそのままStatus値になるので、列の名前や数は自由に変更" +
-        "できます。以下では、対象Canvasや同期の細かい挙動を設定できます。",
+        "Use Obsidian Canvas groups as the columns of a Kanban board — move a card into another group and " +
+        "the note's Status property is synced automatically. The group name becomes the Status value verbatim, " +
+        "so you're free to rename or add columns. Below, you can configure the target Canvas and the finer " +
+        "details of how syncing behaves.",
       cls: "setting-item-description",
     });
 
     new Setting(containerEl)
-      .setName("対象Canvasパス")
-      .setDesc("対象のCanvasファイルへのパス（Vaultルートからの相対パス）")
+      .setName("Target Canvas path")
+      .setDesc("Path to the Canvas file to sync (relative to the vault root)")
       .addText((text) =>
         text
           .setPlaceholder("Canvas Kanban Sync.canvas")
@@ -995,8 +990,8 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("タスク判定タグ")
-      .setDesc("frontmatterのtagsにこのタグが含まれるノートだけを同期対象にする（#は付けずに入力）")
+      .setName("Task tag")
+      .setDesc("Only notes whose frontmatter tags include this tag are synced (enter it without the #)")
       .addText((text) =>
         text
           .setPlaceholder("task")
@@ -1008,8 +1003,8 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Done扱いにするグループ")
-      .setDesc("このCanvasグループ名を「完了」として扱う。Archiveコマンドの対象・CompletedAt記録の判定対象")
+      .setName("Group treated as Done")
+      .setDesc("Treat this Canvas group as \"done\". Determines Archive's target and when CompletedAt is recorded")
       .addText((text) =>
         text
           .setPlaceholder("Done")
@@ -1021,10 +1016,10 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Archive自動実行")
+      .setName("Automatic Archive")
       .setDesc(
-        "週一で自動的にDone扱いのグループのノードをCanvasから取り除く機能のOn/Off。" +
-          "OFFにしても、コマンド「Archive done tasks」による手動実行は可能"
+        "Turn on/off weekly automatic removal of Done cards from the Canvas. Even when OFF, the " +
+          "\"Archive done tasks\" command is still available to run manually"
       )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.archiveAutoEnabled).onChange(async (value) => {
@@ -1036,11 +1031,11 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.archiveAutoEnabled) {
       new Setting(containerEl)
-        .setName("Archive実行曜日")
-        .setDesc("Done扱いのグループのノードを週一で自動的にCanvasから取り除く曜日（ノートとStatusは維持）")
+        .setName("Archive weekday")
+        .setDesc("Weekday on which Done cards are automatically removed from the Canvas each week (the note and its Status are kept)")
         .addDropdown((dropdown) => {
           WEEKDAY_LABELS.forEach((label, index) => {
-            dropdown.addOption(String(index), `${label}曜日`);
+            dropdown.addOption(String(index), label);
           });
           dropdown.setValue(String(this.plugin.settings.archiveWeekday));
           dropdown.onChange(async (value) => {
@@ -1050,17 +1045,18 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
         });
     }
 
-    containerEl.createEl("h3", { text: "同期に使うプロパティ名" });
+    containerEl.createEl("h3", { text: "Properties used for syncing" });
     containerEl.createEl("p", {
       text:
-        "変更は今後の同期から適用されます。既存ノートのプロパティ名は自動では移行されません。" +
-        "運用中に変更する場合は、VSCode等の外部エディタで一括置換してください。",
+        "Changes apply to future syncs only — existing notes' property names are not migrated automatically. " +
+        "If you change these while already in use, find-and-replace across your notes with an external editor " +
+        "(e.g. VS Code).",
       cls: "setting-item-description",
     });
 
     new Setting(containerEl)
-      .setName("Statusとして使うプロパティ")
-      .setDesc("Canvas上のグループ名を書き込むプロパティ名")
+      .setName("Property used as Status")
+      .setDesc("The property name that the Canvas group name is written to")
       .addText((text) =>
         text
           .setPlaceholder("Status")
@@ -1072,10 +1068,11 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("StartedAtとして使うプロパティ")
+      .setName("Property used as StartedAt")
       .setDesc(
-        "休止状態（Statusが未設定）から最初に抜けた時刻を書き込むプロパティ名（経過日数の起点。休止状態に戻るとクリアされます）。" +
-          "空欄にするとこのプロパティへの書き込みと、Canvasカード上の経過日数バッジ表示の両方をOFFにできます"
+        "The property name for the time this task first left the resting state (Status unset) — the starting " +
+          "point for the elapsed-days count. Cleared when it returns to the resting state. Leave blank to turn " +
+          "off both this property and the elapsed-days badge on Canvas cards"
       )
       .addText((text) =>
         text
@@ -1088,8 +1085,8 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("ModifiedAtとして使うプロパティ")
-      .setDesc("Status更新時に現在時刻を書き込むプロパティ名。空欄にするとこのプロパティへの書き込みをOFFにできます")
+      .setName("Property used as ModifiedAt")
+      .setDesc("The property name that the current time is written to whenever Status changes. Leave blank to turn off writing to this property")
       .addText((text) =>
         text
           .setPlaceholder("ModifiedAt")
@@ -1101,8 +1098,8 @@ class CanvasKanbanSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("CompletedAtとして使うプロパティ")
-      .setDesc("Doneグループに入った時刻を書き込むプロパティ名。空欄にするとこのプロパティへの書き込みをOFFにできます")
+      .setName("Property used as CompletedAt")
+      .setDesc("The property name that the time is written to when the card enters the Done group. Leave blank to turn off writing to this property")
       .addText((text) =>
         text
           .setPlaceholder("CompletedAt")
