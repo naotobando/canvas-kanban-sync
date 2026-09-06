@@ -30,6 +30,8 @@ const TUTORIAL_STRINGS = {
     task2Title: "②Vault内の既存ノートも追加できる",
     task3Title: "③完了カードはArchiveでまとめて片付けられる",
     task4Title: "④同期するかどうかはタグで設定できる",
+    task5Title: "⑤プロパティはⓘマークをホバーすると見える",
+    task6Title: "⑥経過日数はカード上のバッジで確認できる",
     task1Body:
       "Canvas Kanban Syncのチュートリアル用ノートです。\n\n" +
       "このカードを Doing や Done のグループへドラッグしてみてください。ドロップすると、このノートの " +
@@ -47,15 +49,28 @@ const TUTORIAL_STRINGS = {
     task4Body: (taskTag) =>
       `④ このカードは実は同期されません。ノートのfrontmatterに \`tags: ${taskTag}\` が付いていないためです` +
       "（意図的な例です）。どのタグを対象にするかは、設定画面の「タスク判定タグ」で変更できます。",
-    welcome: (canvasPath) =>
+    task5Body:
+      "⑤ このカードのタイトル脇にある「ⓘ」マークにカーソルを合わせてみてください。普段は隠れている" +
+      "Status等のプロパティが一時的に表示されます。クリックすると、固定表示⇔非表示を切り替えられます。",
+    task6Body:
+      "⑥ このカードのタイトル脇にある「◯d」のようなバッジは、`StartedAt`からの経過日数です。`StartedAt`は、" +
+      "このノートを最初にCanvas上のいずれかのグループへドラッグ&ドロップして配置し、同期が実行されたタイミング" +
+      "で記録されます。カードをCanvasから削除すると、次の同期でクリアされます。",
+    welcome:
       "# 🗂️ Canvas Kanban Sync へようこそ\n\n" +
       "このCanvas上のグループ名（Todo / Doing / Done）が、そのままタスクノートの `Status` になります。" +
       "カードを別のグループへドラッグすると、ノートのfrontmatterが自動的に同期されます。\n\n" +
-      "## ⓪ さきに設定を変更してください\n\n" +
-      "このプラグインは常に1つのCanvasだけを同期対象にします。実際に手を動かして試すには、設定画面の" +
-      "「対象Canvasパス」を次の値に変更してください。\n\n" +
-      `\`${canvasPath}\`\n\n` +
-      "変更したら、下の4枚のサンプルタスクを①→④の順に試してみてください。",
+      "下の6枚のサンプルタスクを①→⑥の順に試してみてください。",
+    // A separate, callout-styled node — folded into the welcome text as a
+    // "##" subheading, this got skimmed past on the way to the groups below
+    // (reported after actually using it). A distinct colored/iconed callout
+    // block interrupts that eye path instead of blending into a wall of text.
+    setupCallout: (canvasPath) =>
+      "> [!warning] ⓪ さきに設定を変更してください\n" +
+      "> このプラグインは常に1つのCanvasだけを同期対象にします。実際に手を動かして試すには、設定画面の" +
+      "「対象Canvasパス」を次の値に変更してください。\n" +
+      ">\n" +
+      `> \`${canvasPath}\``,
     task2Hint: (task2Path) =>
       `② ファイルエクスプローラを開き、「${task2Path}」というノートを探してください。` +
       "このノートはまだCanvas上に配置していません。ドラッグ&ドロップでこのあたりに追加すると、①と同じように" +
@@ -662,12 +677,14 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
   // Self-contained walkthrough in its own folder — deliberately NOT built
   // on this.settings.canvasPath, so it never touches (or requires) the
   // user's real board, and deleting the folder removes every trace of it.
-  // Four seeded tasks + on-canvas text notes walk through the main
-  // behaviors hands-on instead of requiring a README no one reads yet:
+  // Six seeded tasks + on-canvas text notes walk through the main behaviors
+  // hands-on instead of requiring a README no one reads yet:
   //   ① already placed in Todo — drag it to see Status sync happen
   //   ② deliberately NOT placed — the user drags it in themselves
   //   ③ already placed in Done, already synced — ready to test Archive
   //   ④ deliberately untagged — placed but never syncs, a live counterexample
+  //   ⑤ already placed/tagged — its own ⓘ marker demonstrates the hover reveal
+  //   ⑥ already placed/tagged — its own elapsed-days badge is visible on it
   //
   // Layout/geometry/edges are language-agnostic and built once here; only
   // the strings come from TUTORIAL_STRINGS[lang] — adding a language later
@@ -707,21 +724,48 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
     const task4Path = await this.getUniqueFilePath(`${folderPath}/${s.task4Title}.md`);
     await this.app.vault.create(task4Path, `${s.task4Body(taskTag)}\n`);
 
+    // ⑤⑥ are tagged and placed like ①③, so the initial sync below gives
+    // them a real Status/StartedAt — the hover-properties marker and the
+    // elapsed-days badge they each explain are then genuinely visible on
+    // their own card, not just described in the abstract.
+    const task5Path = await this.getUniqueFilePath(`${folderPath}/${s.task5Title}.md`);
+    await this.app.vault.create(task5Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task5Body}\n`);
+
+    const task6Path = await this.getUniqueFilePath(`${folderPath}/${s.task6Title}.md`);
+    await this.app.vault.create(task6Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task6Body}\n`);
+
     const groups = [
       { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
       { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
       { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
     ];
 
+    // dynamicHeight lets Obsidian grow each card to fit its actual note
+    // content instead of a hand-picked fixed height that inevitably clips
+    // longer bodies (see ③) — the numbers below are just a reasonable
+    // starting size, not the final rendered height.
     const cards = [
-      { id: "task-1", type: "file", file: task1Path, x: 60, y: 120, width: 400, height: 300 },
-      { id: "task-3", type: "file", file: task3Path, x: 2310, y: 120, width: 400, height: 300 },
+      { id: "task-1", type: "file", file: task1Path, x: 60, y: 120, width: 400, height: 340, dynamicHeight: true },
+      { id: "task-3", type: "file", file: task3Path, x: 2310, y: 120, width: 400, height: 560, dynamicHeight: true },
       // Colored to hint "this one behaves differently" before reading any text.
-      { id: "task-4", type: "file", file: task4Path, x: 60, y: 820, width: 400, height: 300, color: "1" },
+      {
+        id: "task-4",
+        type: "file",
+        file: task4Path,
+        x: 60,
+        y: 820,
+        width: 400,
+        height: 340,
+        dynamicHeight: true,
+        color: "1",
+      },
+      { id: "task-5", type: "file", file: task5Path, x: 1185, y: 120, width: 400, height: 320, dynamicHeight: true },
+      { id: "task-6", type: "file", file: task6Path, x: 1185, y: 500, width: 400, height: 320, dynamicHeight: true },
     ];
 
     const texts = [
-      { id: "welcome", type: "text", x: 0, y: -460, width: 3250, height: 400, text: s.welcome(canvasPath) },
+      { id: "welcome", type: "text", x: 0, y: -460, width: 3250, height: 180, text: s.welcome },
+      { id: "setup-callout", type: "text", x: 0, y: -260, width: 3250, height: 180, text: s.setupCallout(canvasPath) },
       { id: "task-2-hint", type: "text", x: 60, y: 480, width: 880, height: 260, text: s.task2Hint(task2Path) },
       {
         id: "settings-overview",
@@ -745,8 +789,8 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
     await this.app.vault.create(canvasPath, JSON.stringify(template, null, "\t"));
     new Notice(s.noticeCreated(canvasPath));
 
-    // Populate Status/StartedAt for ①③ immediately (④ stays untouched since
-    // it's untagged, ② isn't placed at all), so opening the new canvas
+    // Populate Status/StartedAt for ①③⑤⑥ immediately (④ stays untouched
+    // since it's untagged, ② isn't placed at all), so opening the new canvas
     // already shows the sync working rather than inert cards. Passed
     // explicitly since the tutorial canvas is deliberately not
     // this.settings.canvasPath (see method comment above).
