@@ -26,10 +26,10 @@ const TUTORIAL_STRINGS = {
   ja: {
     folderName: "Canvas Kanban Sync チュートリアル",
     canvasFileName: "チュートリアル.canvas",
-    task1Title: "①動かしてみる",
-    task2Title: "②Vaultからドラッグしてみる",
-    task3Title: "③Doneに置いてArchiveを試す",
-    task4Title: "④タグが無いので同期されない",
+    task1Title: "①グループを移動するとStatusが変わる",
+    task2Title: "②Vault内の既存ノートも追加できる",
+    task3Title: "③完了カードはArchiveでまとめて片付けられる",
+    task4Title: "④同期するかどうかはタグで設定できる",
     task1Body:
       "Canvas Kanban Syncのチュートリアル用ノートです。\n\n" +
       "このカードを Doing や Done のグループへドラッグしてみてください。ドロップすると、このノートの " +
