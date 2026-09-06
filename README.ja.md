@@ -105,11 +105,11 @@ Statusプロパティは削除されず、Canvas上の配置だけが消えま�
 
 | 設定項目 | 内容 |
 |---|---|
-| 対象Canvasパス | 同期対象にするCanvasファイル |
-| タスク判定タグ | どのタグを持つノートを同期対象にするか |
-| Done扱いにするグループ | どのグループを「完了」として扱うか |
-| Archive自動実行 / 実行曜日 | 週次自動Archiveの有効化と曜日 |
-| Status / StartedAt / ModifiedAt / CompletedAtとして使うプロパティ | 各プロパティ名（Status以外は空欄でOFFにできる） |
+| Target Canvas path | 同期対象にするCanvasファイル |
+| Task tag | どのタグを持つノートを同期対象にするか |
+| Group treated as Done | どのグループを「完了」として扱うか |
+| Automatic Archive / Archive weekday | 週次自動Archiveの有効化と曜日 |
+| Property used as Status / StartedAt / ModifiedAt / CompletedAt | 各プロパティ名（Status以外は空欄でOFFにできる） |
 
 ## 注意事項
 
