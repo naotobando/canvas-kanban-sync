@@ -84,6 +84,68 @@ const TUTORIAL_STRINGS = {
     noticeCreated: (path) => `チュートリアル用Canvasを作成しました: ${path}`,
     noticeExists: (path) => `チュートリアル用Canvasは既に存在します: ${path}（上書きしません）`,
   },
+  // Settings-screen labels are referenced generically ("the settings
+  // screen", paraphrased field names) rather than quoted, since the
+  // settings screen itself is still Japanese-only as of this tutorial —
+  // quoting an English label that doesn't exist yet would be actively
+  // misleading. Revisit once the settings screen is translated (same
+  // step ⑤ as this file, just not done yet).
+  en: {
+    folderName: "Canvas Kanban Sync Tutorial",
+    canvasFileName: "Tutorial.canvas",
+    task1Title: "① Moving between groups changes Status",
+    task2Title: "② Existing vault notes can be added too",
+    task3Title: "③ Completed cards can be tidied up with Archive",
+    task4Title: "④ Whether a note syncs is controlled by its tag",
+    task5Title: "⑤ Properties are revealed by hovering the ⓘ mark",
+    task6Title: "⑥ Elapsed days are shown as a badge on the card",
+    task1Body:
+      "This is a Canvas Kanban Sync tutorial note.\n\n" +
+      "Try dragging this card into the Doing or Done group. On drop, this note's `Status` is automatically " +
+      "rewritten to match the group name (e.g. Doing).\n\n" +
+      "Feel free to edit or delete it.",
+    task2Body: "This is a Canvas Kanban Sync tutorial note. It's card ②, and hasn't been placed on this Canvas yet.",
+    task3Body: (doneStatus) =>
+      `③ This card already has \`Status: ${doneStatus}\`. Running the "Archive done tasks" command removes ` +
+      "just this card from the Canvas.\n\n" +
+      "- Only the card's placement on the Canvas is removed — the note itself and its Status property are left untouched\n" +
+      "- Which group counts as \"done\" for Archive is configurable in the settings screen\n" +
+      "- Archive can also run automatically on a chosen weekday (also in the settings screen). This is OFF by " +
+      "default, so only the manual command runs unless you turn it on\n\n" +
+      "If you'd like to try it for real, run it from the command palette.",
+    task4Body: (taskTag) =>
+      `④ This card never actually syncs — its note is missing \`tags: ${taskTag}\` in its frontmatter (this ` +
+      "is deliberate). Which tag counts as a task is configurable in the settings screen.",
+    task5Body:
+      "⑤ Hover the “ⓘ” mark next to this card's title. Properties like Status, normally hidden, appear " +
+      "temporarily. Click it to pin them open (or closed).",
+    task6Body:
+      "⑥ The badge next to this card's title, like “3d”, is the number of days elapsed since `StartedAt`. " +
+      "`StartedAt` is recorded the first time this note is dragged into any group on a Canvas and synced. " +
+      "Removing the card from the Canvas clears it on the next sync.",
+    welcome:
+      "# 🗂️ Welcome to Canvas Kanban Sync\n\n" +
+      "The group a card sits in (Todo / Doing / Done) becomes that task note's `Status`. Drag a card into " +
+      "another group and its frontmatter is synced automatically.\n\n" +
+      "Try the six sample tasks below, in order from ① to ⑥.",
+    setupCallout: (canvasPath) =>
+      "> [!warning] ⓪ Change a setting first\n" +
+      "> This plugin always syncs a single Canvas. To actually try things out, set \"Target Canvas path\" in " +
+      "the settings screen to the following value.\n" +
+      ">\n" +
+      `> \`${canvasPath}\``,
+    task2Hint: (task2Path) =>
+      `② Open the file explorer and find the note "${task2Path}". It hasn't been placed on this Canvas yet — ` +
+      "drag & drop it in around here, and its `Status` will be synced automatically, just like ①.",
+    settingsOverview:
+      "## ⚙️ What you can customize in the settings screen\n\n" +
+      "- **Target Canvas path**: point the sync at a different Canvas file\n" +
+      "- **Status / ModifiedAt / CompletedAt / StartedAt property names**: the frontmatter keys the plugin " +
+      "writes. All except Status can be left blank to turn that property off entirely\n" +
+      "- Turning off **StartedAt** also turns off the elapsed-days badge on Canvas cards",
+    noticeCreated: (path) => `Created tutorial canvas: ${path}`,
+    noticeExists: (path) => `Tutorial canvas already exists: ${path}. Not overwriting.`,
+  },
 };
 
 module.exports = class CanvasKanbanSyncPlugin extends Plugin {
@@ -152,6 +214,14 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
       name: "チュートリアル用Canvasを作成（日本語）",
       callback: async () => {
         await this.createTutorialCanvas("ja");
+      },
+    });
+
+    this.addCommand({
+      id: "create-tutorial-canvas-en",
+      name: "Create tutorial canvas (English)",
+      callback: async () => {
+        await this.createTutorialCanvas("en");
       },
     });
 
