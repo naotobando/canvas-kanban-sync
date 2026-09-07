@@ -76,8 +76,7 @@ from the command palette to walk through the main features hands-on.
   Canvas setup)
 - When you're done, just delete the folder — no trace is left behind
 
-[Insert here a screenshot of the tutorial canvas right after opening it (the
-⓪ callout and the ①–⑥ sample cards laid out)]
+![The tutorial canvas right after opening it, with the ⓪ callout and the ①–⑥ sample cards laid out](assets/tutorial-overview.png)
 
 ## How it works
 
@@ -111,8 +110,7 @@ is removed — the note itself and its Status property are left untouched.
 - Automatic: choose a weekday in settings to run it automatically each week
   (OFF by default)
 
-[Insert here a GIF/video of Done-group cards disappearing from the Canvas
-after running "Archive done tasks"]
+![A Done-group card disappearing from the Canvas after running "Archive done tasks"](assets/archive-done-tasks.gif)
 
 ## Settings
 
