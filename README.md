@@ -1,7 +1,7 @@
 # Canvas Kanban Sync
 
-Run a Kanban board on Obsidian Canvas — moving a card syncs automatically to
-the note's frontmatter.
+A Kanban board on Obsidian Canvas that quietly tracks when each task started
+and finished — so tasks stuck mid-flight don't stay invisible.
 
 English | [日本語](README.ja.md)
 
@@ -16,6 +16,26 @@ automatically rewritten to "Doing"]
 The name of the group a card sits in (Todo / Doing / Done, or whatever you
 choose to call them) becomes that note's Status property. Just drag a card
 between groups, and the note's frontmatter is updated automatically.
+
+## Why I built this
+
+I've relied on both Notion and FigJam for task management over the years.
+
+- **Notion**: I managed tasks with an Agile mindset, logging start/completion
+  dates to review progress. But it's database/list-shaped, so I couldn't
+  freely spread my thinking out in two dimensions
+- **FigJam**: I loved being able to place kanban cards freely across a 2D
+  board. But with no tracking, tasks that got stuck mid-progress — started
+  but never finished — would quietly disappear into the board
+
+This plugin combines both. You get a free-form 2D Kanban board on Obsidian
+Canvas, and moving a card automatically records when each task started and
+finished. The elapsed-days badge exists specifically to surface tasks that
+have stalled since they started.
+
+Prioritizing or managing tasks isn't this plugin's job (I plan to hand that
+off to AI eventually). It's only responsible for one thing: capturing the
+data you need to notice what's stuck, with zero extra effort.
 
 ## Features
 
