@@ -3,7 +3,7 @@
   "name": "Canvas Kanban Sync",
   "version": "0.4.0",
   "minAppVersion": "1.5.0",
-  "description": "Run a Kanban board on a Canvas — moving a card between groups syncs its Status (and other fields) to the note's frontmatter.",
+  "description": "Kanban board on Canvas. Moving a card syncs its Status to the note's frontmatter, with automatic start/completion timestamps and an elapsed-days badge to catch tasks that stall.",
   "author": "naotobando",
   "authorUrl": "https://x.com/7auto",
   "isDesktopOnly": false
