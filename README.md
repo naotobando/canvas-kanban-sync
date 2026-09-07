@@ -100,8 +100,7 @@ ModifiedAt: 2026-09-06 10:00
 - `ModifiedAt`: updated every time Status changes
 - `CompletedAt`: the time the card entered the group treated as "done"
 
-[Insert here a GIF/screenshot of the elapsed-days badge (e.g. "3d") next to a
-card's title, and the ⓘ mark being hovered to reveal properties]
+![The elapsed-days badge next to a card's title, and hovering the ⓘ mark to reveal properties](assets/elapsed-days-and-hover.gif)
 
 ## About Archive
 
