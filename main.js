@@ -714,21 +714,38 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
     }
   }
 
+  // Collision-safe: if the configured canvasPath is already taken (e.g. it's
+  // still pointing at the tutorial Canvas from step ⓪, or any other existing
+  // file), create under an auto-numbered variant instead of aborting with an
+  // error — and repoint canvasPath at wherever it actually landed, so the
+  // setting is left correctly pointing at a real, usable board either way.
   async createTaskCanvas() {
-    const path = this.settings.canvasPath;
-    const existing = this.app.vault.getAbstractFileByPath(path);
+    const path = await this.getUniqueFilePath(this.settings.canvasPath);
 
-    if (existing) {
-      new Notice(`Canvas already exists: ${path}. Not overwriting.`);
-      return;
+    if (path !== this.settings.canvasPath) {
+      this.settings.canvasPath = path;
+      await this.saveSettings();
     }
 
     // Group size is 2.5x the original (400x600 -> 1000x1500), gap scaled to match.
+    // Colors: "2"/"4" are Obsidian's built-in orange/green preset swatches.
+    // Doing uses a literal hex instead of a preset — Obsidian's numbered
+    // palette has no true blue (5 is cyan), and "blue" was asked for
+    // specifically. Kept in sync with the same colors in createTutorialCanvas().
     const template = {
       nodes: [
-        { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
-        { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
-        { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
+        { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500, color: "2" },
+        {
+          id: "group-doing",
+          type: "group",
+          label: "Doing",
+          x: 1125,
+          y: 0,
+          width: 1000,
+          height: 1500,
+          color: "#3b82f6",
+        },
+        { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500, color: "4" },
       ],
       edges: [],
       metadata: { version: "1.0-1.0", frontmatter: {} },
@@ -798,10 +815,23 @@ module.exports = class CanvasKanbanSyncPlugin extends Plugin {
     const task6Path = await this.getUniqueFilePath(`${folderPath}/${s.task6Title}.md`);
     await this.app.vault.create(task6Path, `---\ntags:\n  - ${taskTag}\n---\n\n${s.task6Body}\n`);
 
+    // Colors: "2"/"4" are Obsidian's built-in orange/green preset swatches.
+    // Doing uses a literal hex instead of a preset — Obsidian's numbered
+    // palette has no true blue (5 is cyan), and "blue" was asked for
+    // specifically.
     const groups = [
-      { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500 },
-      { id: "group-doing", type: "group", label: "Doing", x: 1125, y: 0, width: 1000, height: 1500 },
-      { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500 },
+      { id: "group-todo", type: "group", label: "Todo", x: 0, y: 0, width: 1000, height: 1500, color: "2" },
+      {
+        id: "group-doing",
+        type: "group",
+        label: "Doing",
+        x: 1125,
+        y: 0,
+        width: 1000,
+        height: 1500,
+        color: "#3b82f6",
+      },
+      { id: "group-done", type: "group", label: "Done", x: 2250, y: 0, width: 1000, height: 1500, color: "4" },
     ];
 
     // dynamicHeight lets Obsidian grow each card to fit its actual note
