@@ -9,9 +9,9 @@ English | [日本語](README.ja.md)
 
 ## What is this?
 
-[Insert here a short GIF/video showing a card in the Todo group being dragged
-into the Doing group, then opening that note to show its Status property
-automatically rewritten to "Doing"]
+![Dragging a card into another group syncs its Status property automatically](assets/drag-and-drop-sync.gif)
+
+*The wait between dropping the card and the Status property updating is shortened in this GIF for brevity — in practice it can take a bit longer.*
 
 The name of the group a card sits in (Todo / Doing / Done, or whatever you
 choose to call them) becomes that note's Status property. Just drag a card
