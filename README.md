@@ -33,9 +33,25 @@ Canvas, and moving a card automatically records when each task started and
 finished. The elapsed-days badge exists specifically to surface tasks that
 have stalled since they started.
 
-Prioritizing or managing tasks isn't this plugin's job (I plan to hand that
-off to AI eventually). It's only responsible for one thing: capturing the
-data you need to notice what's stuck, with zero extra effort.
+Prioritizing or managing tasks isn't this plugin's job. It's only responsible
+for one thing: capturing the data you need to notice what's stuck, with zero
+extra effort.
+
+## Letting AI run task management
+
+The frontmatter this plugin writes (Status, and StartedAt as the elapsed-days
+badge's anchor) isn't just for humans to read — it's data meant for AI to
+read too.
+
+I use Claude's scheduled-task feature to have it watch my task notes across
+the vault every day and generate a daily summary automatically — nudging me
+on tasks that have stalled, and even proposing priorities. That leaves me
+with exactly two jobs: adding tasks, and moving them once they're done.
+
+That's why this plugin doesn't try to prioritize or manage tasks itself.
+That judgment is left to AI; the plugin's only job is to keep feeding it the
+material it needs — start dates, elapsed days, completion dates — captured
+automatically just by moving cards on the Canvas.
 
 ## Features
 
